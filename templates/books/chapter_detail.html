@@ -1,0 +1,367 @@
+{% extends 'base.html' %}
+
+{% block title %}第{{ chapter.chapter_number }}章 {{ chapter.title }} - {{ book.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chapter-content {
+        font-size: 1.1em;
+        line-height: 1.8;
+        color: #333;
+    }
+    
+    .chapter-content p {
+        margin-bottom: 1.2em;
+        text-indent: 2em;
+    }
+    
+    .reading-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+    }
+    
+    .chapter-nav {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid #dee2e6;
+        margin-bottom: 2rem;
+    }
+    
+    .chapter-nav .nav-item {
+        flex: 1;
+    }
+    
+    .chapter-nav .btn {
+        width: 100%;
+        border-radius: 0;
+    }
+    
+    @media (max-width: 768px) {
+        .chapter-content {
+            font-size: 1em;
+            line-height: 1.6;
+        }
+        
+        .chapter-content p {
+            text-indent: 1.5em;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 阅读标题区域 -->
+<div class="reading-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'books:read' %}" class="text-white-50">
+                                <i class="fas fa-book-open"></i> 阅读板块
+                            </a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'books:book_detail' book.id %}" class="text-white-50">
+                                {{ book.title }}
+                            </a>
+                        </li>
+                        <li class="breadcrumb-item active text-white">
+                            第{{ chapter.chapter_number }}章
+                        </li>
+                    </ol>
+                </nav>
+                
+                <h1 class="display-6 mb-2">第{{ chapter.chapter_number }}章</h1>
+                <h2 class="h3 mb-3">{{ chapter.title }}</h2>
+                
+                <div class="d-flex align-items-center">
+                    <span class="me-3">
+                        <i class="fas fa-user"></i> {{ book.author.display_name|default:book.author.email }}
+                    </span>
+                    <span class="me-3">
+                        <i class="fas fa-calendar"></i> {{ chapter.updated_at|date:"Y-m-d H:i" }}
+                    </span>
+                    {% if is_author %}
+                    <a href="{% url 'books:edit_chapter' book.id chapter.chapter_number %}" 
+                       class="btn btn-outline-light btn-sm">
+                        <i class="fas fa-edit"></i> 编辑章节
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 章节导航栏 -->
+<div class="chapter-nav">
+    <div class="container">
+        <div class="d-flex">
+            {% if prev_chapter %}
+            <div class="nav-item">
+                <a href="{% url 'books:chapter_detail' book.id prev_chapter.chapter_number %}" 
+                   class="btn btn-outline-primary">
+                    <i class="fas fa-chevron-left"></i> 上一章
+                </a>
+            </div>
+            {% else %}
+            <div class="nav-item">
+                <button class="btn btn-outline-secondary" disabled>
+                    <i class="fas fa-chevron-left"></i> 上一章
+                </button>
+            </div>
+            {% endif %}
+            
+            <div class="nav-item">
+                <a href="{% url 'books:book_detail' book.id %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-list"></i> 目录
+                </a>
+            </div>
+            
+            {% if next_chapter %}
+            <div class="nav-item">
+                <a href="{% url 'books:chapter_detail' book.id next_chapter.chapter_number %}" 
+                   class="btn btn-outline-primary">
+                    下一章 <i class="fas fa-chevron-right"></i>
+                </a>
+            </div>
+            {% else %}
+            <div class="nav-item">
+                <button class="btn btn-outline-secondary" disabled>
+                    下一章 <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 章节内容 -->
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4 p-md-5">
+                    <!-- 审核状态提示（仅作者可见） -->
+                    {% if is_author %}
+                        {% comment %} 检查是否确实被拒绝且需要显示拒绝原因 {% endcomment %}
+                        {% if chapter.adm_check_title == 'rejected' or chapter.adm_check_content == 'rejected' %}
+                            {% comment %} 管理员明确拒绝 {% endcomment %}
+                            <div class="alert alert-warning">
+                                <h6><i class="fas fa-exclamation-triangle"></i> 审核未通过</h6>
+                                {% if chapter.adm_check_title == 'rejected' and chapter.title_reject_reason %}
+                                <p class="mb-1"><strong>标题：</strong>{{ chapter.title_reject_reason }}</p>
+                                {% endif %}
+                                {% if chapter.adm_check_content == 'rejected' and chapter.content_reject_reason %}
+                                <p class="mb-0"><strong>内容：</strong>{{ chapter.content_reject_reason }}</p>
+                                {% endif %}
+                            </div>
+                        {% elif chapter.ai_check_title == 'rejected' and chapter.adm_check_title is None %}
+                            {% comment %} AI拒绝且管理员未审核标题 {% endcomment %}
+                            <div class="alert alert-warning">
+                                <h6><i class="fas fa-exclamation-triangle"></i> 审核未通过</h6>
+                                {% if chapter.title_reject_reason %}
+                                <p class="mb-1"><strong>标题：</strong>{{ chapter.title_reject_reason }}</p>
+                                {% endif %}
+                            </div>
+                        {% elif chapter.ai_check_content == 'rejected' and chapter.adm_check_content is None %}
+                            {% comment %} AI拒绝且管理员未审核内容 {% endcomment %}
+                            <div class="alert alert-warning">
+                                <h6><i class="fas fa-exclamation-triangle"></i> 审核未通过</h6>
+                                {% if chapter.content_reject_reason %}
+                                <p class="mb-0"><strong>内容：</strong>{{ chapter.content_reject_reason }}</p>
+                                {% endif %}
+                            </div>
+                        {% elif chapter.ai_check_title == 'pending' or chapter.ai_check_content == 'pending' %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-clock"></i> 内容正在审核中，请耐心等待...
+                        </div>
+                        {% elif chapter.adm_check_title != 'approved' or chapter.adm_check_content != 'approved' %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-hourglass-half"></i> 内容等待管理员最终审核
+                        </div>
+                        {% endif %}
+                    {% endif %}
+                    
+                    <!-- 章节正文 -->
+                    <div class="chapter-content">
+                        {{ chapter.content|linebreaks }}
+                    </div>
+                    
+                    <!-- 章节底部信息 -->
+                    <div class="mt-5 pt-4 border-top">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="text-muted mb-1">
+                                    <i class="fas fa-clock"></i> 更新时间：{{ chapter.updated_at|date:"Y年m月d日 H:i" }}
+                                </p>
+                                <p class="text-muted mb-0">
+                                    <i class="fas fa-file-word"></i> 字数：{{ chapter.content|length }}
+                                </p>
+                            </div>
+                            <div class="col-md-6 text-md-end">
+                                {% if is_author %}
+                                <a href="{% url 'books:edit_chapter' book.id chapter.chapter_number %}" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-edit"></i> 编辑本章
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'books:book_detail' book.id %}" 
+                                   class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-list"></i> 返回目录
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 底部导航 -->
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between">
+                {% if prev_chapter %}
+                <a href="{% url 'books:chapter_detail' book.id prev_chapter.chapter_number %}" 
+                   class="btn btn-primary">
+                    <i class="fas fa-chevron-left"></i> 上一章：{{ prev_chapter.title|truncatechars:20 }}
+                </a>
+                {% else %}
+                <div></div>
+                {% endif %}
+                
+                {% if next_chapter %}
+                <a href="{% url 'books:chapter_detail' book.id next_chapter.chapter_number %}" 
+                   class="btn btn-primary">
+                    下一章：{{ next_chapter.title|truncatechars:20 }} <i class="fas fa-chevron-right"></i>
+                </a>
+                {% else %}
+                <div class="text-center">
+                    <span class="text-muted">
+                        <i class="fas fa-flag-checkered"></i> 已读完最新章节
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 评论区域 -->
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-comments"></i> 本章评论
+                        <span class="badge bg-secondary ms-2">即将开放</span>
+                    </h5>
+                </div>
+                <div class="card-body text-center text-muted">
+                    <i class="fas fa-comment-slash fa-3x mb-3"></i>
+                    <p>评论功能正在开发中，敬请期待...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 阅读进度记录
+    function updateReadingProgress() {
+        const bookId = {{ book.id }};
+        const chapterNumber = {{ chapter.chapter_number }};
+        
+        // 这里可以添加阅读进度记录逻辑
+        localStorage.setItem(`reading_progress_${bookId}`, chapterNumber);
+    }
+    
+    // 页面加载完成后记录阅读进度
+    updateReadingProgress();
+    
+    // 快捷键导航
+    $(document).keydown(function(e) {
+        // 左箭头 - 上一章
+        if (e.keyCode === 37 && !$(e.target).is('input, textarea')) {
+            {% if prev_chapter %}
+            window.location.href = "{% url 'books:chapter_detail' book.id prev_chapter.chapter_number %}";
+            {% endif %}
+        }
+        
+        // 右箭头 - 下一章
+        if (e.keyCode === 39 && !$(e.target).is('input, textarea')) {
+            {% if next_chapter %}
+            window.location.href = "{% url 'books:chapter_detail' book.id next_chapter.chapter_number %}";
+            {% endif %}
+        }
+        
+        // ESC - 返回目录
+        if (e.keyCode === 27) {
+            window.location.href = "{% url 'books:book_detail' book.id %}";
+        }
+    });
+    
+    // 滚动到顶部按钮
+    $(window).scroll(function() {
+        if ($(this).scrollTop() > 300) {
+            if ($('#scroll-to-top').length === 0) {
+                $('body').append(`
+                    <button id="scroll-to-top" class="btn btn-primary" 
+                            style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+                        <i class="fas fa-chevron-up"></i>
+                    </button>
+                `);
+                
+                $('#scroll-to-top').click(function() {
+                    $('html, body').animate({scrollTop: 0}, 300);
+                });
+            }
+        } else {
+            $('#scroll-to-top').remove();
+        }
+    });
+    
+    // 添加阅读提示
+    let readingTips = [
+        '💡 使用左右箭头键可以快速翻页',
+        '💡 按ESC键可以返回目录',
+        '💡 页面会自动记录您的阅读进度'
+    ];
+    
+    if (readingTips.length > 0) {
+        setTimeout(function() {
+            const tip = readingTips[Math.floor(Math.random() * readingTips.length)];
+            $('body').append(`
+                <div class="toast show position-fixed bottom-0 end-0 m-3" style="z-index: 1050;">
+                    <div class="toast-header">
+                        <i class="fas fa-lightbulb text-warning me-2"></i>
+                        <strong class="me-auto">阅读提示</strong>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                    </div>
+                    <div class="toast-body">${tip}</div>
+                </div>
+            `);
+            
+            // 5秒后自动隐藏
+            setTimeout(function() {
+                $('.toast').fadeOut();
+            }, 5000);
+        }, 2000);
+    }
+});
+</script>
+{% endblock %}

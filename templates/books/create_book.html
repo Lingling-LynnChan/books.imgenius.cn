@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block title %}创建新作品 - 天才俱乐部·阅读专区{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-plus"></i> 创建新作品
+                </h4>
+            </div>
+            <div class="card-body">
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'books:create' %}">创作</a>
+                        </li>
+                        <li class="breadcrumb-item active">创建新作品</li>
+                    </ol>
+                </nav>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="title" class="form-label">
+                            作品名 <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="title" name="title" 
+                               placeholder="请输入作品名" maxlength="200" required>
+                        <div class="form-text">
+                            <i class="fas fa-lightbulb"></i> 
+                            起一个吸引读者的作品名
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">作品简介</label>
+                        <textarea class="form-control" id="description" name="description" 
+                                  rows="6" placeholder="请简要介绍您的作品内容、风格、特色等..."></textarea>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle"></i> 
+                            好的简介能够吸引更多读者
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-shield-alt"></i> 
+                        <strong>温馨提示：</strong>
+                        作品创建后将进行内容审核，审核通过后才能在阅读板块展示。
+                        您可以随时修改作品信息，但修改后需要重新审核。
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'books:create' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> 返回
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> 创建作品
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-lightbulb"></i> 创作建议</h6>
+            </div>
+            <div class="card-body">
+                <h6><i class="fas fa-star"></i> 作品命名</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success"></i> 简洁易记</li>
+                    <li><i class="fas fa-check text-success"></i> 突出特色</li>
+                    <li><i class="fas fa-check text-success"></i> 避免敏感词</li>
+                </ul>
+                
+                <h6><i class="fas fa-file-text"></i> 简介撰写</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success"></i> 概括核心内容</li>
+                    <li><i class="fas fa-check text-success"></i> 突出亮点特色</li>
+                    <li><i class="fas fa-check text-success"></i> 引发阅读兴趣</li>
+                    <li><i class="fas fa-check text-success"></i> 保持适当篇幅</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 自动聚焦到标题输入框
+    $('#title').focus();
+    
+    // 字数统计
+    function updateCounter(input, maxLength) {
+        const current = input.val().length;
+        const remaining = maxLength - current;
+        const counter = input.siblings('.form-text').find('.char-counter');
+        
+        if (counter.length === 0) {
+            input.siblings('.form-text').append(`<span class="char-counter float-end">${current}/${maxLength}</span>`);
+        } else {
+            counter.text(`${current}/${maxLength}`);
+        }
+        
+        if (remaining < 20) {
+            counter.addClass('text-warning');
+        } else {
+            counter.removeClass('text-warning');
+        }
+    }
+    
+    // 绑定字数统计
+    $('#title').on('input', function() {
+        updateCounter($(this), 200);
+    });
+    
+    // 表单验证
+    $('form').submit(function(e) {
+        const title = $('#title').val().trim();
+        
+        if (!title) {
+            alert('请填写作品名');
+            $('#title').focus();
+            e.preventDefault();
+            return;
+        }
+        
+        if (title.length > 200) {
+            alert('作品名不能超过200个字符');
+            $('#title').focus();
+            e.preventDefault();
+            return;
+        }
+        
+        // 显示提交中状态
+        $(this).find('button[type=submit]').prop('disabled', true)
+               .html('<i class="fas fa-spinner fa-spin"></i> 创建中...');
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+
+{% block title %}阅读板块 - 天才俱乐部·阅读专区{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <!-- 搜索功能 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-search"></i> 搜索作品</h5>
+            </div>
+            <div class="card-body">
+                <form method="get">
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="search" 
+                               value="{{ request.GET.search }}" 
+                               placeholder="搜索作品名、作者或简介">
+                        <button class="btn btn-outline-primary" type="submit">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 最新更新 -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-clock"></i> 浏览说明</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-book text-primary"></i> 点击作品查看详情</li>
+                    <li><i class="fas fa-list text-success"></i> 查看章节目录</li>
+                    <li><i class="fas fa-comment text-info"></i> 阅读评论交流</li>
+                    <li><i class="fas fa-heart text-danger"></i> 发现优秀作品</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-9">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-book-open"></i> 阅读板块</h2>
+            <span class="badge bg-secondary">共 {{ paginator.count }} 部作品</span>
+        </div>
+        
+        {% if request.GET.search %}
+        <div class="alert alert-info">
+            <i class="fas fa-search"></i> 搜索结果：「{{ request.GET.search }}」
+            <a href="{% url 'books:read' %}" class="btn btn-sm btn-outline-secondary ms-2">
+                <i class="fas fa-times"></i> 清除搜索
+            </a>
+        </div>
+        {% endif %}
+        
+        <!-- 作品列表 -->
+        <div class="row">
+            {% for book in books %}
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <a href="{% url 'books:book_detail' book.id %}" class="text-decoration-none">
+                                {{ book.title }}
+                            </a>
+                        </h5>
+                        
+                        <p class="text-muted small">
+                            <i class="fas fa-user"></i> {{ book.author.display_name|default:book.author.email }}
+                        </p>
+                        
+                        <p class="card-text">
+                            {% if book.description %}
+                                {{ book.description|truncatechars:100 }}
+                            {% else %}
+                                <span class="text-muted">暂无简介</span>
+                            {% endif %}
+                        </p>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <i class="fas fa-calendar"></i> 
+                                {% if book.last_chapter_update %}
+                                    更新于 {{ book.last_chapter_update|date:"m-d H:i" }}
+                                {% else %}
+                                    创建于 {{ book.created_at|date:"m-d H:i" }}
+                                {% endif %}
+                            </small>
+                            
+                            <a href="{% url 'books:book_detail' book.id %}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-book-open"></i> 阅读
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+                <div class="col-12">
+                    <div class="text-center py-5">
+                        <i class="fas fa-book-open fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">
+                            {% if request.GET.search %}
+                                没有找到相关作品
+                            {% else %}
+                                暂无作品
+                            {% endif %}
+                        </h4>
+                        <p class="text-muted">
+                            {% if request.GET.search %}
+                                尝试使用不同的关键词搜索
+                            {% else %}
+                                期待作者们的精彩创作
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <!-- 分页 -->
+        {% if is_paginated %}
+        <nav aria-label="作品列表分页">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 搜索框自动聚焦
+    $('input[name="search"]').focus();
+    
+    // 实时搜索提示（可选功能）
+    let searchTimeout;
+    $('input[name="search"]').on('input', function() {
+        clearTimeout(searchTimeout);
+        const query = $(this).val().trim();
+        
+        if (query.length >= 2) {
+            searchTimeout = setTimeout(function() {
+                // 这里可以实现实时搜索提示功能
+                // 调用搜索API获取建议
+            }, 500);
+        }
+    });
+});
+</script>
+{% endblock %}

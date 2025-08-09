@@ -1,0 +1,18 @@
+# 开发环境Docker Compose覆盖配置
+version: '3.8'
+
+services:
+  web:
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=dev-secret-key-not-for-production
+    volumes:
+      - ..:/app  # 挂载源代码，支持热重载
+    command: python manage.py runserver 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+  
+  # 开发环境不需要nginx
+  nginx:
+    profiles:
+      - production  # 只在生产环境启动

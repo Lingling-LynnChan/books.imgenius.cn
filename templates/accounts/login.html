@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block title %}登录 - 天才俱乐部·阅读专区{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-sign-in-alt"></i> 用户登录
+                </h4>
+            </div>
+            <div class="card-body">
+                {% if step == '2' %}
+                    <!-- 第二步：输入邮件验证码 -->
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="2">
+                        <input type="hidden" name="email" value="{{ email }}">
+                        <input type="hidden" name="remember_me" value="{{ remember_me }}">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">邮箱地址</label>
+                            <input type="email" class="form-control" value="{{ email }}" readonly>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email_code" class="form-label">邮件验证码</label>
+                            <input type="text" class="form-control" id="email_code" name="email_code" 
+                                   placeholder="请输入收到的6位验证码" maxlength="6" required>
+                            <div class="form-text">验证码已发送到您的邮箱，有效期1小时</div>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt"></i> 登录
+                            </button>
+                        </div>
+                        
+                        <div class="text-center mt-3">
+                            <a href="{% url 'accounts:login' %}" class="text-muted">
+                                <i class="fas fa-arrow-left"></i> 返回重新输入邮箱
+                            </a>
+                        </div>
+                    </form>
+                {% else %}
+                    <!-- 第一步：输入邮箱和图片验证码 -->
+                    <form method="post" id="loginForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="1">
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">邮箱地址</label>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   placeholder="请输入您的邮箱" required>
+                            <div class="form-text">
+                                系统会自动为新邮箱创建账户，无需单独注册
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-8">
+                                <label for="captcha_code" class="form-label">图片验证码</label>
+                                <input type="text" class="form-control" id="captcha_code" name="captcha_code" 
+                                       placeholder="请输入验证码" maxlength="4" required>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label">&nbsp;</label>
+                                <img src="{% url 'accounts:generate_captcha' %}" 
+                                     alt="验证码" class="form-control h-auto" 
+                                     id="captchaImage" 
+                                     style="cursor: pointer;" 
+                                     title="点击刷新验证码">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="remember_me" name="remember_me">
+                            <label class="form-check-label" for="remember_me">
+                                记住我（30天内自动登录）
+                            </label>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> 发送邮件验证码
+                            </button>
+                        </div>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <p class="text-muted">
+                <i class="fas fa-info-circle"></i> 
+                本站采用邮箱验证登录，安全便捷，无需记忆密码
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 刷新验证码
+    $('#captchaImage').click(function() {
+        this.src = '{% url "accounts:generate_captcha" %}?' + new Date().getTime();
+    });
+    
+    // 自动聚焦到邮件验证码输入框
+    {% if step == '2' %}
+    $('#email_code').focus();
+    {% else %}
+    $('#email').focus();
+    {% endif %}
+    
+    // 验证码输入框自动转换为大写
+    $('#captcha_code').on('input', function() {
+        this.value = this.value.toUpperCase();
+    });
+    
+    // 邮件验证码输入限制
+    $('#email_code').on('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+});
+</script>
+{% endblock %}

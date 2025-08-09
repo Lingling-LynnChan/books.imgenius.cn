@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ book.title }} - 作品详情{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <!-- 作品信息 -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h1 class="card-title">{{ book.display_title }}</h1>
+                
+                <div class="mb-3">
+                    <span class="badge bg-primary">
+                        <i class="fas fa-user"></i> {{ book.author.display_name|default:book.author.email }}
+                    </span>
+                    <span class="badge bg-secondary">
+                        <i class="fas fa-calendar"></i> {{ book.created_at|date:"Y-m-d" }}
+                    </span>
+                    {% if book.last_chapter_update %}
+                    <span class="badge bg-success">
+                        <i class="fas fa-clock"></i> 更新于 {{ book.last_chapter_update|date:"m-d H:i" }}
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <p class="card-text">{{ book.display_description|linebreaks }}</p>
+                
+                <!-- 作者操作按钮 -->
+                {% if book.author == user %}
+                <div class="mt-3">
+                    <a href="{% url 'books:edit_book' book.id %}" class="btn btn-warning">
+                        <i class="fas fa-edit"></i> 编辑作品信息
+                    </a>
+                    <a href="{% url 'books:chapter_list' book.id %}" class="btn btn-primary">
+                        <i class="fas fa-list"></i> 管理章节
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- 章节目录 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-list"></i> 章节目录</h5>
+                <span class="badge bg-secondary">共 {{ chapters|length }} 章</span>
+            </div>
+            <div class="card-body">
+                {% if chapters %}
+                <div class="list-group list-group-flush">
+                    {% for chapter in chapters %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">
+                                第{{ chapter.chapter_number }}章 
+                                {% if chapter.title_pending and chapter.title_pending != chapter.title %}
+                                    {{ chapter.title_pending }}
+                                    <span class="review-status pending">(审核中)</span>
+                                {% elif chapter.adm_check_title == 'rejected' %}
+                                    {{ chapter.title }}
+                                    <span class="review-status rejected">(审核不通过)</span>
+                                {% else %}
+                                    {{ chapter.title }}
+                                {% endif %}
+                            </h6>
+                            <small class="text-muted">
+                                <i class="fas fa-calendar"></i> {{ chapter.updated_at|date:"Y-m-d H:i" }}
+                            </small>
+                            
+                            <!-- 拒绝原因：只在确实被拒绝且没有通过审核时显示 -->
+                            {% if chapter.title_reject_reason %}
+                                {% if chapter.adm_check_title == 'rejected' %}
+                                    <!-- 管理员明确拒绝 -->
+                                    <div class="small text-danger">
+                                        <i class="fas fa-exclamation-circle"></i> {{ chapter.title_reject_reason }}
+                                    </div>
+                                {% elif chapter.ai_check_title == 'rejected' and chapter.adm_check_title is None %}
+                                    <!-- AI拒绝且管理员未审核 -->
+                                    <div class="small text-warning">
+                                        <i class="fas fa-exclamation-circle"></i> {{ chapter.title_reject_reason }}
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                            {% if chapter.content_reject_reason %}
+                                {% if chapter.adm_check_content == 'rejected' %}
+                                    <!-- 管理员明确拒绝 -->
+                                    <div class="small text-danger">
+                                        <i class="fas fa-exclamation-circle"></i> {{ chapter.content_reject_reason }}
+                                    </div>
+                                {% elif chapter.ai_check_content == 'rejected' and chapter.adm_check_content is None %}
+                                    <!-- AI拒绝且管理员未审核 -->
+                                    <div class="small text-warning">
+                                        <i class="fas fa-exclamation-circle"></i> {{ chapter.content_reject_reason }}
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                        
+                        <div>
+                            <a href="{% url 'books:chapter_detail' book.id chapter.chapter_number %}" 
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-book-open"></i> 阅读
+                            </a>
+                            {% if book.author == user %}
+                            <a href="{% url 'books:edit_chapter' book.id chapter.chapter_number %}" 
+                               class="btn btn-outline-warning btn-sm">
+                                <i class="fas fa-edit"></i> 编辑
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">暂无章节</h5>
+                    {% if book.author == user %}
+                    <p class="text-muted">开始创作您的第一个章节吧！</p>
+                    <a href="{% url 'books:create_chapter' book.id %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> 添加章节
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <!-- 添加新章节按钮 -->
+                {% if book.author == user and chapters %}
+                <div class="text-center mt-3">
+                    <a href="{% url 'books:create_chapter' book.id %}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> 添加新章节
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- 作品评论 -->
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-comments"></i> 作品评论</h5>
+                {% if user.can_create_content %}
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#commentModal">
+                    <i class="fas fa-comment"></i> 发表评论
+                </button>
+                {% endif %}
+            </div>
+            <div class="card-body" id="bookComments">
+                <!-- 评论内容通过AJAX加载 -->
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin"></i> 加载评论中...
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- 阅读导航 -->
+        {% if chapters %}
+        <div class="card chapter-navigation">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-bookmark"></i> 快速导航</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'books:chapter_detail' book.id chapters.0.chapter_number %}" 
+                       class="btn btn-outline-primary">
+                        <i class="fas fa-play"></i> 开始阅读
+                    </a>
+                    {% if chapters|length > 1 and last_chapter_number %}
+                    <a href="{% url 'books:chapter_detail' book.id last_chapter_number %}" 
+                       class="btn btn-outline-secondary">
+                        <i class="fas fa-forward"></i> 最新章节
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 作品统计 -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-chart-bar"></i> 作品统计</h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h5 class="text-primary">{{ chapters|length }}</h5>
+                        <p class="text-muted small">章节数</p>
+                    </div>
+                    <div class="col-6">
+                        <h5 class="text-success">0</h5>
+                        <p class="text-muted small">总字数</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 推荐作品 -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-star"></i> 推荐阅读</h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">暂无推荐作品</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 评论模态框 -->
+{% if user.can_create_content %}
+<div class="modal fade" id="commentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-comment"></i> 发表评论</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="commentForm">
+                <div class="modal-body">
+                    <input type="hidden" name="book_id" value="{{ book.id }}">
+                    <div class="mb-3">
+                        <label for="comment_content" class="form-label">评论内容</label>
+                        <textarea class="form-control" id="comment_content" name="content" 
+                                  rows="4" placeholder="请输入您的评论..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> 发表评论
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 加载作品评论
+    loadBookComments();
+    
+    // 发表评论
+    {% if user.can_create_content %}
+    $('#commentForm').submit(function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+        
+        $.post('{% url "comments:api_add_comment" %}', formData)
+        .done(function(response) {
+            if (response.success) {
+                alert(response.message);
+                $('#commentModal').modal('hide');
+                $('#commentForm')[0].reset();
+                loadBookComments(); // 重新加载评论
+            } else {
+                alert('评论失败：' + response.message);
+            }
+        })
+        .fail(function() {
+            alert('网络错误，请稍后重试');
+        });
+    });
+    {% endif %}
+});
+
+function loadBookComments() {
+    // 这里应该加载评论，由于简化实现，暂时显示占位内容
+    $('#bookComments').html(`
+        <div class="text-center text-muted py-3">
+            <i class="fas fa-comment-dots"></i> 暂无评论，快来发表第一条评论吧！
+        </div>
+    `);
+}
+</script>
+{% endblock %}

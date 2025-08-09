@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+
+{% block title %}章节审核 - 管理员后台{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-gavel"></i> 章节审核
+                </h4>
+                <a href="{% url 'books:admin_panel' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> 返回后台
+                </a>
+            </div>
+            <div class="card-body">
+                {% if chapter %}
+                    <!-- 章节审核 -->
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h5>章节信息</h5>
+                            
+                            <!-- 标题审核 -->
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0">章节标题</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>当前标题</h6>
+                                            <p class="text-muted">{{ chapter.title|default:"无" }}</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>待审核标题</h6>
+                                            <p>{{ chapter.title_pending|default:"无" }}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <h6>审核状态</h6>
+                                        <p>
+                                            AI审核: 
+                                            {% if chapter.ai_check_title == 'approved' %}
+                                                <span class="badge bg-success">通过</span>
+                                            {% elif chapter.ai_check_title == 'rejected' %}
+                                                <span class="badge bg-danger">不通过</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">待审核</span>
+                                            {% endif %}
+                                            
+                                            管理员审核: 
+                                            {% if chapter.adm_check_title == 'approved' %}
+                                                <span class="badge bg-success">通过</span>
+                                            {% elif chapter.adm_check_title == 'rejected' %}
+                                                <span class="badge bg-danger">不通过</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">未审核</span>
+                                            {% endif %}
+                                        </p>
+                                        
+                                        {% if chapter.title_reject_reason %}
+                                            <div class="alert alert-danger">
+                                                <strong>拒绝原因:</strong> {{ chapter.title_reject_reason }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if chapter.title_pending and chapter.adm_check_title != 'approved' %}
+                                        <div class="mt-3">
+                                            <form method="post" class="d-inline">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="approve">
+                                                <input type="hidden" name="field_type" value="title">
+                                                <button type="submit" class="btn btn-success btn-sm">
+                                                    <i class="fas fa-check"></i> 通过
+                                                </button>
+                                            </form>
+                                            
+                                            <button type="button" class="btn btn-danger btn-sm ms-2" 
+                                                    data-bs-toggle="modal" data-bs-target="#rejectTitleModal">
+                                                <i class="fas fa-times"></i> 拒绝
+                                            </button>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- 内容审核 -->
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0">章节内容</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>当前内容</h6>
+                                            <div class="border p-2" style="max-height: 200px; overflow-y: auto;">
+                                                <p class="text-muted small">{{ chapter.content|default:"无"|truncatewords:50 }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>待审核内容</h6>
+                                            <div class="border p-2" style="max-height: 200px; overflow-y: auto;">
+                                                <p class="small">{{ chapter.content_pending|default:"无"|truncatewords:50 }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <h6>审核状态</h6>
+                                        <p>
+                                            AI审核: 
+                                            {% if chapter.ai_check_content == 'approved' %}
+                                                <span class="badge bg-success">通过</span>
+                                            {% elif chapter.ai_check_content == 'rejected' %}
+                                                <span class="badge bg-danger">不通过</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">待审核</span>
+                                            {% endif %}
+                                            
+                                            管理员审核: 
+                                            {% if chapter.adm_check_content == 'approved' %}
+                                                <span class="badge bg-success">通过</span>
+                                            {% elif chapter.adm_check_content == 'rejected' %}
+                                                <span class="badge bg-danger">不通过</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">未审核</span>
+                                            {% endif %}
+                                        </p>
+                                        
+                                        {% if chapter.content_reject_reason %}
+                                            <div class="alert alert-danger">
+                                                <strong>拒绝原因:</strong> {{ chapter.content_reject_reason }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if chapter.content_pending and chapter.adm_check_content != 'approved' %}
+                                        <div class="mt-3">
+                                            <form method="post" class="d-inline">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="approve">
+                                                <input type="hidden" name="field_type" value="content">
+                                                <button type="submit" class="btn btn-success btn-sm">
+                                                    <i class="fas fa-check"></i> 通过
+                                                </button>
+                                            </form>
+                                            
+                                            <button type="button" class="btn btn-danger btn-sm ms-2" 
+                                                    data-bs-toggle="modal" data-bs-target="#rejectContentModal">
+                                                <i class="fas fa-times"></i> 拒绝
+                                            </button>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">章节信息</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>作品:</strong> {{ book.title }}</p>
+                                    <p><strong>作者:</strong> {{ book.author.display_name }}</p>
+                                    <p><strong>章节号:</strong> {{ chapter.chapter_number }}</p>
+                                    <p><strong>创建时间:</strong> {{ chapter.created_at|date:"Y-m-d H:i" }}</p>
+                                    <p><strong>更新时间:</strong> {{ chapter.updated_at|date:"Y-m-d H:i" }}</p>
+                                    
+                                    <div class="mt-3">
+                                        <a href="{% url 'books:chapter_detail' book.id chapter.chapter_number %}" 
+                                           class="btn btn-outline-primary btn-sm w-100" target="_blank">
+                                            <i class="fas fa-external-link-alt"></i> 查看章节
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        未找到要审核的章节，请检查章节号是否正确。
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 拒绝标题模态框 -->
+<div class="modal fade" id="rejectTitleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">拒绝章节标题</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="reject">
+                    <input type="hidden" name="field_type" value="title">
+                    <div class="mb-3">
+                        <label for="titleRejectReason" class="form-label">拒绝原因</label>
+                        <textarea class="form-control" id="titleRejectReason" name="reason" 
+                                  rows="3" required placeholder="请输入拒绝的具体原因..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-danger">确认拒绝</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 拒绝内容模态框 -->
+<div class="modal fade" id="rejectContentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">拒绝章节内容</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="reject">
+                    <input type="hidden" name="field_type" value="content">
+                    <div class="mb-3">
+                        <label for="contentRejectReason" class="form-label">拒绝原因</label>
+                        <textarea class="form-control" id="contentRejectReason" name="reason" 
+                                  rows="3" required placeholder="请输入拒绝的具体原因..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-danger">确认拒绝</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 处理表单提交成功后的提示
+    {% if messages %}
+        {% for message in messages %}
+            {% if message.tags == 'success' %}
+                setTimeout(function() {
+                    window.location.href = '{% url "books:admin_panel" %}';
+                }, 2000);
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+});
+</script>
+{% endblock %}

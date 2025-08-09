@@ -1,0 +1,247 @@
+{% extends 'base.html' %}
+
+{% block title %}编辑作品信息 - 天才俱乐部·阅读专区{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-edit"></i> 编辑作品信息
+                </h4>
+            </div>
+            <div class="card-body">
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'books:create' %}">创作</a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'books:chapter_list' book.id %}">{{ book.title|default:book.title_pending }}</a>
+                        </li>
+                        <li class="breadcrumb-item active">编辑作品信息</li>
+                    </ol>
+                </nav>
+                
+                                <!-- 显示当前审核状态 -->
+                {% if book.title_pending and book.adm_check_title != 'approved' or book.description_pending and book.adm_check_description != 'approved' %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-clock"></i> 
+                    <strong>有内容等待审核：</strong>
+                    {% if book.title_pending and book.adm_check_title != 'approved' %}
+                        <br>• 标题：{{ book.title_pending }}
+                        {% if book.adm_check_title == 'rejected' %}
+                            <span class="text-danger">（管理员审核未通过：{{ book.title_reject_reason }}）</span>
+                        {% elif book.ai_check_title == 'rejected' and book.adm_check_title is None %}
+                            <span class="text-danger">（AI审核未通过：{{ book.title_reject_reason }}）</span>
+                        {% elif book.ai_check_title == 'pending' %}
+                            <span class="text-warning">（AI审核中）</span>
+                        {% elif book.adm_check_title is None and book.ai_check_title == 'approved' %}
+                            <span class="text-info">（等待管理员审核）</span>
+                        {% endif %}
+                    {% endif %}
+                    {% if book.description_pending and book.adm_check_description != 'approved' %}
+                        <br>• 简介：{{ book.description_pending|truncatewords:10 }}...
+                        {% if book.adm_check_description == 'rejected' %}
+                            <span class="text-danger">（管理员审核未通过：{{ book.description_reject_reason }}）</span>
+                        {% elif book.ai_check_description == 'rejected' and book.adm_check_description is None %}
+                            <span class="text-danger">（AI审核未通过：{{ book.description_reject_reason }}）</span>
+                        {% elif book.ai_check_description == 'pending' %}
+                            <span class="text-warning">（AI审核中）</span>
+                        {% elif book.adm_check_description is None and book.ai_check_description == 'approved' %}
+                            <span class="text-info">（等待管理员审核）</span>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                {% elif book.is_title_approved and book.is_description_approved %}
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i> 
+                    <strong>作品已审核通过</strong>
+                </div>
+                {% endif %}
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="title" class="form-label">
+                            作品名 <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="title" name="title" 
+                               value="{{ book.title_pending|default:book.title }}"
+                               placeholder="请输入作品名" maxlength="200" required>
+                        <div class="form-text">
+                            <i class="fas fa-lightbulb"></i> 
+                            起一个吸引读者的作品名
+                            {% if book.title %}
+                                <br><small class="text-muted">当前已发布的标题：{{ book.title }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">作品简介</label>
+                        <textarea class="form-control" id="description" name="description" 
+                                  rows="6" placeholder="请简要介绍您的作品内容、风格、特色等...">{{ book.description_pending|default:book.description }}</textarea>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle"></i> 
+                            好的简介能够吸引更多读者
+                            {% if book.description %}
+                                <br><small class="text-muted">当前已发布的简介：{{ book.description|truncatewords:20 }}...</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-shield-alt"></i> 
+                        <strong>温馨提示：</strong>
+                        作品信息修改后将重新进行内容审核，审核通过后才会更新展示内容。
+                        在审核期间，读者仍可看到之前已通过审核的内容。
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'books:chapter_list' book.id %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> 返回章节列表
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> 保存修改
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-info-circle"></i> 作品状态</h6>
+            </div>
+            <div class="card-body">
+                <h6><i class="fas fa-book"></i> 基本信息</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-calendar"></i> 创建时间：{{ book.created_at|date:"Y-m-d H:i" }}</li>
+                    <li><i class="fas fa-eye"></i> 浏览次数：{{ book.views|default:0 }}</li>
+                    <li><i class="fas fa-list"></i> 章节数量：<span id="chapter-count">加载中...</span></li>
+                </ul>
+                
+                <h6><i class="fas fa-check-circle"></i> 审核状态</h6>
+                <ul class="list-unstyled">
+                    <li>
+                        <i class="fas fa-heading"></i> 标题：
+                        {% if book.title %}
+                            <span class="badge bg-success">已发布</span>
+                        {% elif book.title_pending %}
+                            {% if book.ai_check_title == 'approved' and book.adm_check_title == 'approved' %}
+                                <span class="badge bg-success">审核通过</span>
+                            {% elif book.ai_check_title == 'rejected' or book.adm_check_title == 'rejected' %}
+                                <span class="badge bg-danger">审核未通过</span>
+                            {% else %}
+                                <span class="badge bg-warning">审核中</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge bg-secondary">未提交</span>
+                        {% endif %}
+                    </li>
+                    <li>
+                        <i class="fas fa-file-text"></i> 简介：
+                        {% if book.description %}
+                            <span class="badge bg-success">已发布</span>
+                        {% elif book.description_pending %}
+                            {% if book.ai_check_description == 'approved' and book.adm_check_description == 'approved' %}
+                                <span class="badge bg-success">审核通过</span>
+                            {% elif book.ai_check_description == 'rejected' or book.adm_check_description == 'rejected' %}
+                                <span class="badge bg-danger">审核未通过</span>
+                            {% else %}
+                                <span class="badge bg-warning">审核中</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge bg-secondary">未提交</span>
+                        {% endif %}
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-lightbulb"></i> 编辑建议</h6>
+            </div>
+            <div class="card-body">
+                <h6><i class="fas fa-star"></i> 优化建议</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success"></i> 标题简洁有力</li>
+                    <li><i class="fas fa-check text-success"></i> 简介突出亮点</li>
+                    <li><i class="fas fa-check text-success"></i> 避免敏感内容</li>
+                    <li><i class="fas fa-check text-success"></i> 定期更新维护</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 字数统计
+    function updateCounter(input, maxLength) {
+        const current = input.val().length;
+        const remaining = maxLength - current;
+        const counter = input.siblings('.form-text').find('.char-counter');
+        
+        if (counter.length === 0) {
+            input.siblings('.form-text').append(`<span class="char-counter float-end">${current}/${maxLength}</span>`);
+        } else {
+            counter.text(`${current}/${maxLength}`);
+        }
+        
+        if (remaining < 20) {
+            counter.addClass('text-warning');
+        } else {
+            counter.removeClass('text-warning');
+        }
+    }
+    
+    // 绑定字数统计
+    $('#title').on('input', function() {
+        updateCounter($(this), 200);
+    });
+    
+    // 初始化字数统计
+    updateCounter($('#title'), 200);
+    
+    // 获取章节数量
+    $.get('{% url "books:chapter_list" book.id %}', function(data) {
+        const chapterCount = $(data).find('.chapter-item').length;
+        $('#chapter-count').text(chapterCount + ' 章');
+    }).fail(function() {
+        $('#chapter-count').text('获取失败');
+    });
+    
+    // 表单验证
+    $('form').submit(function(e) {
+        const title = $('#title').val().trim();
+        
+        if (!title) {
+            alert('请填写作品名');
+            $('#title').focus();
+            e.preventDefault();
+            return;
+        }
+        
+        if (title.length > 200) {
+            alert('作品名不能超过200个字符');
+            $('#title').focus();
+            e.preventDefault();
+            return;
+        }
+        
+        // 显示提交中状态
+        $(this).find('button[type=submit]').prop('disabled', true)
+               .html('<i class="fas fa-spinner fa-spin"></i> 保存中...');
+    });
+});
+</script>
+{% endblock %}

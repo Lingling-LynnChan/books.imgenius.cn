@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+
+{% block title %}编辑章节 - {{ book.title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-edit"></i> 编辑章节
+                </h4>
+                <div>
+                    <a href="{% url 'books:chapter_list' book.id %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-list"></i> 返回目录
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'books:create' %}">创作</a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'books:chapter_list' book.id %}">{{ book.title }}</a>
+                        </li>
+                        <li class="breadcrumb-item active">
+                            第{{ chapter.chapter_number }}章
+                        </li>
+                    </ol>
+                </nav>
+                
+                <form method="post" id="chapterForm">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="title" class="form-label">章节标题</label>
+                        <input type="text" class="form-control" id="title" name="title" 
+                               value="{% if draft.title %}{{ draft.title }}{% else %}{{ chapter.title_pending|default:chapter.title }}{% endif %}" 
+                               placeholder="请输入章节标题" maxlength="200" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="content" class="form-label">章节内容</label>
+                        <textarea class="form-control" id="content" name="content" 
+                                  rows="20" placeholder="开始您的创作...">{% if draft.content %}{{ draft.content }}{% else %}{{ chapter.content_pending|default:chapter.content }}{% endif %}</textarea>
+                    </div>
+                    
+                    <!-- 审核状态显示：只在确实被拒绝且没有通过审核时显示 -->
+                    {% if chapter.adm_check_title == 'rejected' and chapter.title_reject_reason %}
+                    <div class="alert alert-danger">
+                        <strong><i class="fas fa-exclamation-triangle"></i> 标题审核未通过：</strong>
+                        {{ chapter.title_reject_reason }}
+                    </div>
+                    {% elif chapter.ai_check_title == 'rejected' and chapter.adm_check_title is None and chapter.title_reject_reason %}
+                    <div class="alert alert-warning">
+                        <strong><i class="fas fa-exclamation-triangle"></i> 标题AI审核未通过：</strong>
+                        {{ chapter.title_reject_reason }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if chapter.adm_check_content == 'rejected' and chapter.content_reject_reason %}
+                    <div class="alert alert-danger">
+                        <strong><i class="fas fa-exclamation-triangle"></i> 内容审核未通过：</strong>
+                        {{ chapter.content_reject_reason }}
+                    </div>
+                    {% elif chapter.ai_check_content == 'rejected' and chapter.adm_check_content is None and chapter.content_reject_reason %}
+                    <div class="alert alert-warning">
+                        <strong><i class="fas fa-exclamation-triangle"></i> 内容AI审核未通过：</strong>
+                        {{ chapter.content_reject_reason }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <button type="button" class="btn btn-outline-primary" id="saveDraftBtn">
+                                <i class="fas fa-save"></i> 保存草稿
+                            </button>
+                            <span class="text-muted small ms-2" id="autoSaveStatus">
+                                <i class="fas fa-clock"></i> 每30秒自动保存，或按Ctrl+S手动保存
+                            </span>
+                        </div>
+                        
+                        <button type="submit" name="action" value="publish" class="btn btn-success">
+                            <i class="fas fa-upload"></i> 发布章节
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- 编辑指南 -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-lightbulb"></i> 编辑指南</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success"></i> 使用简洁明了的章节标题</li>
+                    <li><i class="fas fa-check text-success"></i> 内容结构清晰，段落分明</li>
+                    <li><i class="fas fa-check text-success"></i> 避免使用敏感词汇</li>
+                    <li><i class="fas fa-check text-success"></i> 保持积极健康的内容</li>
+                </ul>
+                
+                <hr>
+                
+                <h6><i class="fas fa-keyboard"></i> 快捷键</h6>
+                <ul class="list-unstyled">
+                    <li><kbd>Ctrl + S</kbd> 手动保存</li>
+                    <li><kbd>Tab</kbd> 缩进</li>
+                    <li><kbd>Shift + Tab</kbd> 取消缩进</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- 章节信息 -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-info-circle"></i> 章节信息</h6>
+            </div>
+            <div class="card-body">
+                <p><strong>章节号：</strong>第{{ chapter.chapter_number }}章</p>
+                <p><strong>创建时间：</strong>{{ chapter.created_at|date:"Y-m-d H:i" }}</p>
+                <p><strong>更新时间：</strong>{{ chapter.updated_at|date:"Y-m-d H:i" }}</p>
+                
+                {% if draft %}
+                <div class="alert alert-info alert-sm">
+                    <i class="fas fa-draft2digital"></i> 
+                    检测到草稿内容，草稿保存于：{{ draft.updated_at|date:"m-d H:i" }}
+                </div>
+                {% endif %}
+                
+                <div class="text-center">
+                    <div id="wordCount" class="h4 text-primary">0</div>
+                    <p class="text-muted small">字数统计</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 审核状态 -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-shield-alt"></i> 审核状态</h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <strong>标题审核：</strong>
+                    {% if chapter.adm_check_title == 'approved' %}
+                        <span class="badge bg-success">已通过</span>
+                    {% elif chapter.adm_check_title == 'rejected' %}
+                        <span class="badge bg-danger">未通过</span>
+                    {% elif chapter.ai_check_title == 'approved' %}
+                        <span class="badge bg-warning">AI已通过</span>
+                    {% else %}
+                        <span class="badge bg-secondary">待审核</span>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-2">
+                    <strong>内容审核：</strong>
+                    {% if chapter.adm_check_content == 'approved' %}
+                        <span class="badge bg-success">已通过</span>
+                    {% elif chapter.adm_check_content == 'rejected' %}
+                        <span class="badge bg-danger">未通过</span>
+                    {% elif chapter.ai_check_content == 'approved' %}
+                        <span class="badge bg-warning">AI已通过</span>
+                    {% else %}
+                        <span class="badge bg-secondary">待审核</span>
+                    {% endif %}
+                </div>
+                
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i> 
+                    发布后将重新进行审核
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    let isAutoSaving = false;
+    let hasUnsavedChanges = false;
+    
+    // 监听内容变化
+    $('#title, #content').on('input', function() {
+        hasUnsavedChanges = true;
+        updateWordCount();
+        scheduleAutoSave(autoSave);
+    });
+    
+    // 字数统计
+    function updateWordCount() {
+        const content = $('#content').val();
+        const wordCount = content.length;
+        $('#wordCount').text(wordCount.toLocaleString());
+    }
+    
+    // 初始化字数统计
+    updateWordCount();
+    
+    // 自动保存
+    function autoSave() {
+        if (!hasUnsavedChanges || isAutoSaving) return;
+        
+        isAutoSaving = true;
+        const formData = {
+            book_id: {{ book.id }},
+            chapter_number: {{ chapter.chapter_number }},
+            title: $('#title').val(),
+            content: $('#content').val(),
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        };
+        
+        $('#autoSaveStatus').html('<i class="fas fa-spinner fa-spin"></i> 自动保存中...');
+        
+        $.post('{% url "books:api_auto_save_chapter" %}', formData)
+        .done(function(response) {
+            if (response.success) {
+                hasUnsavedChanges = false;
+                $('#autoSaveStatus').html('<i class="fas fa-check text-success"></i> 已自动保存');
+                showAutoSaveIndicator();
+                
+                setTimeout(function() {
+                    $('#autoSaveStatus').html('<i class="fas fa-clock"></i> 每30秒自动保存，或按Ctrl+S手动保存');
+                }, 3000);
+            } else {
+                $('#autoSaveStatus').html('<i class="fas fa-exclamation-triangle text-warning"></i> 自动保存失败');
+            }
+        })
+        .fail(function() {
+            $('#autoSaveStatus').html('<i class="fas fa-exclamation-triangle text-danger"></i> 网络错误');
+        })
+        .always(function() {
+            isAutoSaving = false;
+        });
+    }
+    
+    // 手动保存草稿
+    $('#saveDraftBtn').click(function() {
+        autoSave();
+    });
+    
+    // 手动保存快捷键
+    window.manualSave = autoSave;
+    
+    // 发布表单提交
+    $('#chapterForm').submit(function(e) {
+        if (hasUnsavedChanges) {
+            if (!confirm('您有未保存的更改，确定要发布吗？')) {
+                e.preventDefault();
+                return;
+            }
+        }
+        
+        // 显示发布中状态
+        $(this).find('button[type=submit]').prop('disabled', true)
+               .html('<i class="fas fa-spinner fa-spin"></i> 发布中...');
+    });
+    
+    // 页面离开提醒
+    window.addEventListener('beforeunload', function(e) {
+        if (hasUnsavedChanges) {
+            e.preventDefault();
+            e.returnValue = '您有未保存的更改，确定要离开吗？';
+        }
+    });
+    
+    // Tab键缩进功能
+    $('#content').keydown(function(e) {
+        if (e.keyCode === 9) { // Tab键
+            e.preventDefault();
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            const value = this.value;
+            
+            if (e.shiftKey) {
+                // Shift+Tab 取消缩进
+                const beforeCursor = value.substring(0, start);
+                const afterCursor = value.substring(end);
+                const lines = beforeCursor.split('\n');
+                
+                if (lines[lines.length - 1].startsWith('    ')) {
+                    lines[lines.length - 1] = lines[lines.length - 1].substring(4);
+                    this.value = lines.join('\n') + afterCursor;
+                    this.selectionStart = this.selectionEnd = start - 4;
+                }
+            } else {
+                // Tab 缩进
+                this.value = value.substring(0, start) + '    ' + value.substring(end);
+                this.selectionStart = this.selectionEnd = start + 4;
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

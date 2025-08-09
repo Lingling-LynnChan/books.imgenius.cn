@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+
+{% block title %}个人信息 - 天才俱乐部·阅读专区{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-user-edit"></i> 个人信息
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- 显示名称设置 -->
+                <form method="post" class="mb-4" id="displayNameForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_display_name">
+                    
+                    <div class="mb-3">
+                        <label for="display_name" class="form-label">
+                            显示名称 <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="display_name" name="display_name" 
+                               value="{{ user.display_name|default:'' }}" 
+                               placeholder="请设置您的显示名称" maxlength="50" required>
+                        <div id="display-name-feedback" class="form-text">
+                            <i class="fas fa-info-circle"></i> 
+                            显示名称将在您的作品和评论中显示，设置后才能进行创作和评论
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" id="saveDisplayNameBtn">
+                        <i class="fas fa-save"></i> 保存显示名称
+                    </button>
+                </form>
+                
+                <hr>
+                
+                <!-- 邮箱修改 -->
+                <h5><i class="fas fa-envelope"></i> 邮箱地址</h5>
+                <p class="text-muted">当前邮箱：{{ user.email }}</p>
+                
+                <form method="post" id="emailForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_email">
+                    
+                    <div class="row mb-3">
+                        <div class="col-8">
+                            <label for="new_email" class="form-label">新邮箱地址</label>
+                            <input type="email" class="form-control" id="new_email" name="new_email" 
+                                   placeholder="请输入新的邮箱地址">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn btn-outline-primary w-100" id="sendEmailCode">
+                                <i class="fas fa-paper-plane"></i> 发送验证码
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="verification_code" class="form-label">邮件验证码</label>
+                        <input type="text" class="form-control" id="verification_code" name="verification_code" 
+                               placeholder="请输入收到的6位验证码" maxlength="6">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check"></i> 确认修改邮箱
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> 账户信息</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>注册时间：</strong><br>{{ user.date_joined|date:"Y-m-d H:i" }}</p>
+                <p><strong>最后登录：</strong><br>
+                    {% if user.last_login %}
+                        {{ user.last_login|date:"Y-m-d H:i" }}
+                    {% else %}
+                        未记录
+                    {% endif %}
+                </p>
+                <p><strong>账户状态：</strong><br>
+                    {% if user.is_active %}
+                        <span class="badge bg-success">活跃</span>
+                    {% else %}
+                        <span class="badge bg-danger">已停用</span>
+                    {% endif %}
+                </p>
+                
+                {% if user.is_admin %}
+                <p><strong>管理员权限：</strong><br>
+                    <span class="badge bg-warning">管理员</span>
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-question-circle"></i> 帮助说明</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success"></i> 显示名称用于公开显示</li>
+                    <li><i class="fas fa-check text-success"></i> 邮箱地址用于登录验证</li>
+                    <li><i class="fas fa-check text-success"></i> 修改邮箱需要验证新邮箱</li>
+                    <li><i class="fas fa-check text-success"></i> 设置显示名称后才能创作</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    let emailCodeSent = false;
+    let displayNameCheckTimeout;
+    let originalDisplayName = $('#display_name').val();
+    
+    // 显示名称实时检查
+    $('#display_name').on('input', function() {
+        const displayName = $(this).val().trim();
+        const $feedback = $('#display-name-feedback');
+        const $saveBtn = $('#saveDisplayNameBtn');
+        
+        // 清除之前的检查定时器
+        clearTimeout(displayNameCheckTimeout);
+        
+        if (!displayName) {
+            $feedback.html('<i class="fas fa-exclamation-triangle text-danger"></i> 显示名称不能为空').removeClass('text-success text-danger').addClass('text-danger');
+            $saveBtn.prop('disabled', true);
+            return;
+        }
+        
+        if (displayName === originalDisplayName) {
+            $feedback.html('<i class="fas fa-info-circle"></i> 显示名称将在您的作品和评论中显示，设置后才能进行创作和评论').removeClass('text-success text-danger');
+            $saveBtn.prop('disabled', false);
+            return;
+        }
+        
+        // 设置新的检查定时器（防抖）
+        displayNameCheckTimeout = setTimeout(function() {
+            $feedback.html('<i class="fas fa-spinner fa-spin"></i> 检查名称可用性...').removeClass('text-success text-danger');
+            
+            $.post('{% url "accounts:check_display_name" %}', {
+                display_name: displayName,
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+            })
+            .done(function(response) {
+                if (response.available) {
+                    $feedback.html('<i class="fas fa-check text-success"></i> ' + response.message).removeClass('text-danger').addClass('text-success');
+                    $saveBtn.prop('disabled', false);
+                } else {
+                    $feedback.html('<i class="fas fa-times text-danger"></i> ' + response.message).removeClass('text-success').addClass('text-danger');
+                    $saveBtn.prop('disabled', true);
+                }
+            })
+            .fail(function() {
+                $feedback.html('<i class="fas fa-exclamation-triangle text-warning"></i> 网络错误，无法检查名称可用性').removeClass('text-success text-danger').addClass('text-warning');
+                $saveBtn.prop('disabled', false); // 允许用户尝试保存
+            });
+        }, 500); // 500ms 防抖延迟
+    });
+    
+    // 发送邮箱验证码
+    $('#sendEmailCode').click(function() {
+        const newEmail = $('#new_email').val().trim();
+        
+        if (!newEmail) {
+            alert('请先输入新邮箱地址');
+            return;
+        }
+        
+        // 验证邮箱格式
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(newEmail)) {
+            alert('请输入正确的邮箱格式');
+            return;
+        }
+        
+        const $btn = $(this);
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 发送中...');
+        
+        $.post('{% url "accounts:verify_email" %}', {
+            email: newEmail,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        })
+        .done(function(response) {
+            if (response.success) {
+                alert('验证码已发送到新邮箱，请查收');
+                emailCodeSent = true;
+                
+                // 开始倒计时
+                let countdown = 60;
+                const timer = setInterval(function() {
+                    $btn.html(`<i class="fas fa-clock"></i> ${countdown}秒后可重发`);
+                    countdown--;
+                    
+                    if (countdown < 0) {
+                        clearInterval(timer);
+                        $btn.prop('disabled', false).html('<i class="fas fa-paper-plane"></i> 发送验证码');
+                    }
+                }, 1000);
+            } else {
+                alert('发送失败：' + response.message);
+                $btn.prop('disabled', false).html('<i class="fas fa-paper-plane"></i> 发送验证码');
+            }
+        })
+        .fail(function() {
+            alert('网络错误，请稍后重试');
+            $btn.prop('disabled', false).html('<i class="fas fa-paper-plane"></i> 发送验证码');
+        });
+    });
+    
+    // 验证码输入限制
+    $('#verification_code').on('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+    
+    // 表单提交验证
+    $('#emailForm').submit(function(e) {
+        const newEmail = $('#new_email').val().trim();
+        const verificationCode = $('#verification_code').val().trim();
+        
+        if (!newEmail) {
+            alert('请输入新邮箱地址');
+            e.preventDefault();
+            return;
+        }
+        
+        if (!verificationCode) {
+            alert('请输入邮件验证码');
+            e.preventDefault();
+            return;
+        }
+        
+        if (!emailCodeSent) {
+            alert('请先发送验证码到新邮箱');
+            e.preventDefault();
+            return;
+        }
+    });
+});
+</script>
+{% endblock %}

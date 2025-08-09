@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+
+{% block title %}创作板块 - 天才俱乐部·阅读专区{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-pen"></i> 我的创作</h2>
+            {% if can_create %}
+            <a href="{% url 'books:create_book' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> 创建新作品
+            </a>
+            {% else %}
+            <div class="alert alert-warning mb-0" role="alert">
+                <i class="fas fa-exclamation-triangle"></i> 
+                请先在<a href="{% url 'accounts:profile' %}" class="alert-link">个人信息</a>中设置显示名称才能创作
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- 作品列表 -->
+        {% if books %}
+        <div class="row">
+            {% for book in books %}
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            {{ book.display_title }}
+                            {% if book.title_pending and book.title_pending != book.title %}
+                                <span class="review-status pending">(审核中)</span>
+                            {% elif book.adm_check_title == 'rejected' %}
+                                <span class="review-status rejected">(审核不通过)</span>
+                            {% endif %}
+                        </h5>
+                        
+                        <p class="card-text">
+                            {{ book.display_description|truncatechars:80 }}
+                            {% if book.description_pending and book.description_pending != book.description %}
+                                <span class="review-status pending">(审核中)</span>
+                            {% elif book.adm_check_description == 'rejected' %}
+                                <span class="review-status rejected">(审核不通过)</span>
+                            {% endif %}
+                        </p>
+                        
+                        <div class="small text-muted mb-3">
+                            <i class="fas fa-calendar"></i> 创建于 {{ book.created_at|date:"Y-m-d H:i" }}<br>
+                            <i class="fas fa-edit"></i> 更新于 {{ book.updated_at|date:"Y-m-d H:i" }}
+                        </div>
+                        
+                        <!-- 拒绝原因：只在实际被拒绝时显示 -->
+                        {% if book.title_reject_reason and book.adm_check_title == 'rejected' %}
+                        <div class="alert alert-danger alert-sm">
+                            <strong>管理员拒绝标题：</strong>{{ book.title_reject_reason }}
+                        </div>
+                        {% elif book.title_reject_reason and book.ai_check_title == 'rejected' and book.adm_check_title is None %}
+                        <div class="alert alert-warning alert-sm">
+                            <strong>AI拒绝标题：</strong>{{ book.title_reject_reason }}
+                        </div>
+                        {% endif %}
+                        
+                        {% if book.description_reject_reason and book.adm_check_description == 'rejected' %}
+                        <div class="alert alert-danger alert-sm">
+                            <strong>管理员拒绝简介：</strong>{{ book.description_reject_reason }}
+                        </div>
+                        {% elif book.description_reject_reason and book.ai_check_description == 'rejected' and book.adm_check_description is None %}
+                        <div class="alert alert-warning alert-sm">
+                            <strong>AI拒绝简介：</strong>{{ book.description_reject_reason }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'books:chapter_list' book.id %}" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-list"></i> 章节管理
+                            </a>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'books:edit_book' book.id %}" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-edit"></i> 编辑
+                                </a>
+                                <a href="{% url 'books:book_detail' book.id %}" class="btn btn-info btn-sm">
+                                    <i class="fas fa-eye"></i> 预览
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- 分页 -->
+        {% if is_paginated %}
+        <nav aria-label="作品列表分页">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-pen-fancy fa-3x text-muted mb-3"></i>
+            <h4 class="text-muted">还没有创作任何作品</h4>
+            <p class="text-muted">开始您的第一部作品吧！</p>
+            {% if can_create %}
+            <a href="{% url 'books:create_book' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> 创建新作品
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-lightbulb"></i> 创作指南</h5>
+            </div>
+            <div class="card-body">
+                <h6><i class="fas fa-book"></i> 作品创作</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success"></i> 设置吸引人的作品名</li>
+                    <li><i class="fas fa-check text-success"></i> 写一个精彩的简介</li>
+                    <li><i class="fas fa-check text-success"></i> 按章节组织内容</li>
+                    <li><i class="fas fa-check text-success"></i> 定期更新作品</li>
+                </ul>
+                
+                <h6><i class="fas fa-file-alt"></i> 章节编写</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success"></i> 每30秒自动保存</li>
+                    <li><i class="fas fa-check text-success"></i> 支持Ctrl+S手动保存</li>
+                    <li><i class="fas fa-check text-success"></i> 编辑后需要重新审核</li>
+                    <li><i class="fas fa-check text-success"></i> 审核通过后公开显示</li>
+                </ul>
+                
+                <h6><i class="fas fa-shield-alt"></i> 审核规则</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success"></i> AI自动初审</li>
+                    <li><i class="fas fa-check text-success"></i> 管理员人工复审</li>
+                    <li><i class="fas fa-check text-success"></i> 符合社区规范</li>
+                    <li><i class="fas fa-check text-success"></i> 内容积极健康</li>
+                </ul>
+            </div>
+        </div>
+        
+        {% if can_create %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-chart-line"></i> 创作统计</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h4 class="text-primary">{{ books|length }}</h4>
+                        <p class="text-muted">作品数量</p>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-success">0</h4>
+                        <p class="text-muted">总字数</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
