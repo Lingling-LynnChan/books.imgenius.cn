@@ -2,7 +2,37 @@
 
 这个文件夹包含了 BookSite Django 应用的 Docker 容器化部署脚本。
 
-## 文件说明
+## 🚀 快速开始 (推荐)
+
+### 一行命令构建和部署
+
+**从项目根目录运行：**
+
+```bash
+# 构建项目
+../build.sh
+
+# 部署开发环境
+../deploy.sh dev
+
+# 部署生产环境  
+../deploy.sh prod
+```
+
+**或使用 Make 命令：**
+
+```bash
+# 构建项目
+make build
+
+# 开发环境
+make dev
+
+# 生产环境
+make deploy
+```
+
+## 📁 文件说明
 
 - `Dockerfile` - Django 应用的 Docker 镜像构建文件
 - `docker-compose.yml` - 完整的服务编排配置（包含 Django、Redis、MongoDB、Nginx）
@@ -13,7 +43,7 @@
 - `deploy.sh` - 生产环境部署脚本
 - `dev.sh` - 开发环境启动脚本
 
-## 快速开始
+## 🔧 传统方式 (手动步骤)
 
 ### 开发环境
 
