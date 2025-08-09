@@ -3,6 +3,7 @@ pymongo
 redis
 Pillow
 PyMySQL
+mysqlclient
 djangorestframework
 django-cors-headers
 requests
