@@ -1,11 +1,12 @@
 import secrets
 import string
 import random
-
+from django.conf import settings
 
 def generate_verification_code(length=6):
     """生成邮箱验证码"""
-    
+    if settings.DEBUG == True:
+        return '9999'
     return ''.join(random.choices(string.digits, k=length))
 
 
