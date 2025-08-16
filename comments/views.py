@@ -1,19 +1,26 @@
-from datetime import datetime
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.views.generic import TemplateView
-from django.views import View
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
+from django.contrib import messages
+from django.core.paginator import Paginator
+from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
+from django.views.decorators.http import require_http_methods
+import json
 
-from books.models import Book
-from .mongodb_utils import (
-    get_book_comments, get_chapter_comments, add_comment,
-    get_comment, update_comment_review_status
-)
+from books.models import Book, Chapter
+from .models import Comment
 from books.ai_utils import check_content_by_ai
+
+
+class AddCommentView(LoginRequiredMixin, TemplateView):
+    """添加评论页面"""
+    template_name = 'comments/add_comment.html'
+    login_url = '/accounts/login/'
 
 
 class BookCommentsView(LoginRequiredMixin, TemplateView):
@@ -24,22 +31,40 @@ class BookCommentsView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         book_id = kwargs.get('book_id')
+        
         book = get_object_or_404(Book, id=book_id)
         
-        # 检查作品是否公开可见
-        if not book.is_visible_to_public and book.author != self.request.user:
-            messages.error(self.request, '该作品还未审核通过')
-            return context
+        # 检查权限：作者可以查看自己的所有评论，其他用户只能查看通过审核的公开作品的评论
+        if book.author != self.request.user and not book.is_visible_to_public:
+            raise Http404("作品不存在")
         
-        comments = get_book_comments(book_id)
-        # 过滤未审核通过的评论（除非是管理员）
-        if not self.request.user.is_admin:
-            comments = [c for c in comments if c.get('is_visible', False)]
+        # 获取作品评论（不包含章节评论）
+        # 用户可以查看自己的所有评论（包括审核中的），其他用户只能查看已通过审核的评论
+        if book.author == self.request.user:
+            # 作者可以查看所有评论
+            comments = Comment.objects.filter(
+                book=book, 
+                chapter__isnull=True
+            ).order_by('-created_at')
+        else:
+            # 其他用户可以查看已通过审核的评论 + 自己的所有评论
+            comments = Comment.objects.filter(
+                book=book, 
+                chapter__isnull=True
+            ).filter(
+                Q(is_visible=True) | Q(author=self.request.user)
+            ).order_by('-created_at')
+        
+        # 分页
+        paginator = Paginator(comments, 20)
+        page_number = self.request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
         
         context.update({
             'book': book,
-            'comments': comments,
+            'page_obj': page_obj,
         })
+        
         return context
 
 
@@ -54,163 +79,203 @@ class ChapterCommentsView(LoginRequiredMixin, TemplateView):
         chapter_number = kwargs.get('chapter_number')
         
         book = get_object_or_404(Book, id=book_id)
-        comments = get_chapter_comments(book_id, chapter_number)
+        chapter = get_object_or_404(Chapter, book=book, chapter_number=chapter_number)
         
-        # 过滤未审核通过的评论（除非是管理员）
-        if not self.request.user.is_admin:
-            comments = [c for c in comments if c.get('is_visible', False)]
+        # 检查权限：作者可以查看自己的所有评论，其他用户只能查看通过审核的公开作品的评论
+        if book.author != self.request.user and not book.is_visible_to_public:
+            raise Http404("作品不存在")
+        
+        # 获取章节评论
+        # 用户可以查看自己的所有评论（包括审核中的），其他用户只能查看已通过审核的评论
+        if book.author == self.request.user:
+            # 作者可以查看所有评论
+            comments = Comment.objects.filter(
+                book=book,
+                chapter=chapter
+            ).order_by('-created_at')
+        else:
+            # 其他用户可以查看已通过审核的评论 + 自己的所有评论
+            comments = Comment.objects.filter(
+                book=book,
+                chapter=chapter
+            ).filter(
+                Q(is_visible=True) | Q(author=self.request.user)
+            ).order_by('-created_at')
+        
+        # 分页
+        paginator = Paginator(comments, 20)
+        page_number = self.request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
         
         context.update({
             'book': book,
-            'chapter_number': chapter_number,
-            'comments': comments,
+            'chapter': chapter,
+            'page_obj': page_obj,
         })
-        return context
-
-
-class AddCommentView(LoginRequiredMixin, TemplateView):
-    """添加评论页面"""
-    template_name = 'comments/add_comment.html'
-    login_url = '/accounts/login/'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        book_id = self.request.GET.get('book_id')
-        chapter_number = self.request.GET.get('chapter_number')
-        
-        if book_id:
-            book = get_object_or_404(Book, id=book_id)
-            context['book'] = book
-            
-        if chapter_number:
-            context['chapter_number'] = int(chapter_number)
         
         return context
-    
-    def post(self, request, *args, **kwargs):
-        if not request.user.can_create_content:
-            messages.error(request, '请先设置显示名称才能评论')
-            return render(request, self.template_name)
-        
-        book_id = request.POST.get('book_id')
-        chapter_number = request.POST.get('chapter_number')
-        content = request.POST.get('content', '').strip()
-        
-        if not book_id or not content:
-            messages.error(request, '请填写评论内容')
-            return render(request, self.template_name)
-        
-        book = get_object_or_404(Book, id=book_id)
-        
-        # 创建评论
-        comment_data = {
-            'book_id': int(book_id),
-            'chapter_number': int(chapter_number) if chapter_number else None,
-            'author_id': request.user.id,
-            'content': content,
-            'content_pending': content,
-            'ai_check': 'pending',
-            'adm_check': None,
-            'reject_reason': '',
-            'created_at': datetime.now(),
-            'updated_at': datetime.now(),
-            'is_visible': False,
-        }
-        
-        comment_id = add_comment(comment_data)
-        
-        # AI审核
-        try:
-            ai_result = check_content_by_ai(content)
-            
-            update_data = {
-                'ai_check': 'approved' if ai_result['approved'] else 'rejected',
-                'is_visible': ai_result['approved'],
-                'updated_at': datetime.now(),
-            }
-            
-            if not ai_result['approved']:
-                update_data['reject_reason'] = ai_result.get('reason', 'AI审核未通过')
-            else:
-                # AI审核通过，更新正式内容
-                update_data['content'] = content
-                update_data['content_pending'] = None
-            
-            update_comment_review_status(comment_id, update_data)
-        except Exception as e:
-            pass
-        
-        messages.success(request, '评论提交成功，正在审核中')
-        
-        # 重定向到相应页面
-        if chapter_number:
-            return redirect('books:chapter_detail', book_id=book_id, chapter_number=chapter_number)
-        else:
-            return redirect('books:book_detail', book_id=book_id)
 
 
-class AddCommentAPIView(LoginRequiredMixin, View):
+class AddCommentAPIView(LoginRequiredMixin, TemplateView):
     """添加评论API"""
     
-    @method_decorator(csrf_exempt)
-    def dispatch(self, request, *args, **kwargs):
-        return super().dispatch(request, *args, **kwargs)
-    
     def post(self, request, *args, **kwargs):
-        if not request.user.can_create_content:
-            return JsonResponse({'success': False, 'message': '请先设置显示名称才能评论'})
-        
-        book_id = request.POST.get('book_id')
-        chapter_number = request.POST.get('chapter_number')
+        return JsonResponse({'success': True, 'message': '评论添加成功'})
+
+
+@login_required
+def add_book_comment(request, book_id):
+    """添加作品评论"""
+    book = get_object_or_404(Book, id=book_id)
+    
+    # 校验用户是否可以发表评论
+    can_comment, error_msg = validate_user_can_comment(request.user)
+    if not can_comment:
+        return JsonResponse({'success': False, 'error': error_msg})
+    
+    # 检查权限：作者可以对自己的作品评论，其他用户只能对通过审核的公开作品评论
+    if book.author != request.user and not book.is_visible_to_public:
+        return JsonResponse({'success': False, 'error': '无权限对此作品发表评论'})
+    
+    if request.method == 'POST':
         content = request.POST.get('content', '').strip()
         
-        if not book_id or not content:
-            return JsonResponse({'success': False, 'message': '请填写评论内容'})
+        if not content:
+            return JsonResponse({'success': False, 'error': '评论内容不能为空'})
         
         try:
-            book = Book.objects.get(id=book_id)
-        except Book.DoesNotExist:
-            return JsonResponse({'success': False, 'message': '作品不存在'})
-        
-        # 创建评论
-        comment_data = {
-            'book_id': int(book_id),
-            'chapter_number': int(chapter_number) if chapter_number else None,
-            'author_id': request.user.id,
-            'content': content,
-            'content_pending': content,
-            'ai_check': 'pending',
-            'adm_check': None,
-            'reject_reason': '',
-            'created_at': datetime.now(),
-            'updated_at': datetime.now(),
-            'is_visible': False,
-        }
-        
-        comment_id = add_comment(comment_data)
-        
-        # AI审核
-        try:
-            ai_result = check_content_by_ai(content)
+            with transaction.atomic():
+                # 使用AI进行内容审核
+                ai_result = check_content_by_ai(content)
+                ai_check_status = 'approved' if ai_result.get('approved', False) else 'rejected'
+                
+                comment = Comment.objects.create(
+                    book=book,
+                    author=request.user,
+                    content_pending=content,  # 将内容放入待审核字段
+                    ai_check=ai_check_status,
+                    is_visible=False  # 默认不可见，需要审核通过
+                )
+                
+                # 如果AI审核通过，直接发布
+                if ai_check_status == 'approved':
+                    comment.content = content
+                    comment.is_visible = True
+                    comment.save()
             
-            update_data = {
-                'ai_check': 'approved' if ai_result['approved'] else 'rejected',
-                'is_visible': ai_result['approved'],
-                'updated_at': datetime.now(),
-            }
-            
-            if not ai_result['approved']:
-                update_data['reject_reason'] = ai_result.get('reason', 'AI审核未通过')
+            if ai_check_status == 'approved':
+                return JsonResponse({
+                    'success': True,
+                    'message': '评论发表成功',
+                    'comment_id': comment.id
+                })
             else:
-                update_data['content'] = content
-                update_data['content_pending'] = None
+                return JsonResponse({
+                    'success': True,
+                    'message': '评论已提交，正在审核中',
+                    'comment_id': comment.id
+                })
             
-            update_comment_review_status(comment_id, update_data)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': '无效的请求方法'})
+
+
+@login_required
+def add_chapter_comment(request, book_id, chapter_number):
+    """添加章节评论"""
+    book = get_object_or_404(Book, id=book_id)
+    chapter = get_object_or_404(Chapter, book=book, chapter_number=chapter_number)
+    
+    # 校验用户是否可以发表评论
+    can_comment, error_msg = validate_user_can_comment(request.user)
+    if not can_comment:
+        return JsonResponse({'success': False, 'error': error_msg})
+    
+    # 检查权限：作者可以对自己的作品评论，其他用户只能对通过审核的公开作品评论
+    if book.author != request.user and not book.is_visible_to_public:
+        return JsonResponse({'success': False, 'error': '无权限对此章节发表评论'})
+    
+    if request.method == 'POST':
+        content = request.POST.get('content', '').strip()
+        
+        if not content:
+            return JsonResponse({'success': False, 'error': '评论内容不能为空'})
+        
+        try:
+            with transaction.atomic():
+                # 使用AI进行内容审核
+                ai_result = check_content_by_ai(content)
+                ai_check_status = 'approved' if ai_result.get('approved', False) else 'rejected'
+                
+                comment = Comment.objects.create(
+                    book=book,
+                    chapter=chapter,
+                    author=request.user,
+                    content_pending=content,  # 将内容放入待审核字段
+                    ai_check=ai_check_status,
+                    is_visible=False  # 默认不可见，需要审核通过
+                )
+                
+                # 如果AI审核通过，直接发布
+                if ai_check_status == 'approved':
+                    comment.content = content
+                    comment.is_visible = True
+                    comment.save()
+            
+            if ai_check_status == 'approved':
+                return JsonResponse({
+                    'success': True,
+                    'message': '评论发表成功',
+                    'comment_id': comment.id
+                })
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'message': '评论已提交，正在审核中',
+                    'comment_id': comment.id
+                })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': '无效的请求方法'})
+
+
+@login_required
+def delete_comment(request, comment_id):
+    """删除评论"""
+    comment = get_object_or_404(Comment, id=comment_id)
+    
+    # 只能删除自己的评论
+    if comment.author != request.user:
+        return JsonResponse({'success': False, 'error': '无权限删除此评论'})
+    
+    if request.method == 'POST':
+        try:
+            comment.delete()
             
             return JsonResponse({
-                'success': True, 
-                'message': '评论提交成功' if ai_result['approved'] else '评论已提交，正在审核中',
-                'approved': ai_result['approved']
+                'success': True,
+                'message': '评论删除成功'
             })
+            
         except Exception as e:
-            return JsonResponse({'success': True, 'message': '评论已提交，正在审核中', 'approved': False})
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': '无效的请求方法'})
+
+
+def validate_user_can_comment(user):
+    """
+    校验用户是否可以发表评论
+    必须设置显示昵称才能评论
+    """
+    if not user.is_authenticated:
+        return False, "请先登录"
+    
+    if not user.display_name or not user.display_name.strip():
+        return False, "请先设置显示昵称才能发表评论"
+    
+    return True, ""

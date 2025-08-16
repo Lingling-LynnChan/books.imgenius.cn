@@ -3,12 +3,39 @@
 {% block title %}{{ book.title }} - 作品详情{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="row">
     <div class="col-md-8">
         <!-- 作品信息 -->
         <div class="card mb-4">
             <div class="card-body">
                 <h1 class="card-title">{{ book.display_title }}</h1>
+                
+                <!-- 作品标题审核状态 -->
+                {% if book.title_pending %}
+                    {% if book.adm_check_title == 'rejected' %}
+                        <div class="alert alert-danger alert-sm border-0 bg-light-danger mb-3">
+                            <div class="d-flex align-items-start">
+                                <span class="me-2">❌</span>
+                                <div>
+                                    <strong>管理员审核标题不通过</strong>
+                                    <small class="text-muted">{{ book.title_reject_reason }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% elif book.ai_check_title == 'pending' %}
+                        <div class="alert alert-warning alert-sm border-0 bg-light-warning mb-3">
+                            <div class="d-flex align-items-start">
+                                <span class="me-2">⚠️</span>
+                                <div>
+                                    <strong>AI审核标题不通过</strong>
+                                    <small class="text-muted">{{ book.title_reject_reason }}</small>
+                                    <small class="text-info">⏳ 等待管理员审核</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endif %}
                 
                 <div class="mb-3">
                     <span class="badge bg-primary">
@@ -25,6 +52,32 @@
                 </div>
                 
                 <p class="card-text">{{ book.display_description|linebreaks }}</p>
+                
+                <!-- 作品简介审核状态 -->
+                {% if book.description_pending %}
+                    {% if book.adm_check_description == 'rejected' %}
+                        <div class="alert alert-danger alert-sm border-0 bg-light-danger mb-3">
+                            <div class="d-flex align-items-start">
+                                <span class="me-2">❌</span>
+                                <div>
+                                    <strong>管理员审核简介不通过</strong>
+                                    <small class="text-muted">{{ book.description_reject_reason }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% elif book.ai_check_description == 'pending' %}
+                        <div class="alert alert-warning alert-sm border-0 bg-light-warning mb-3">
+                            <div class="d-flex align-items-start">
+                                <span class="me-2">⚠️</span>
+                                <div>
+                                    <strong>AI审核简介不通过</strong>
+                                    <small class="text-muted">{{ book.description_reject_reason }}</small>
+                                    <small class="text-info">⏳ 等待管理员审核</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endif %}
                 
                 <!-- 作者操作按钮 -->
                 {% if book.author == user %}
@@ -53,45 +106,54 @@
                     <div class="list-group-item d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="mb-1">
-                                第{{ chapter.chapter_number }}章 
-                                {% if chapter.title_pending and chapter.title_pending != chapter.title %}
-                                    {{ chapter.title_pending }}
-                                    <span class="review-status pending">(审核中)</span>
-                                {% elif chapter.adm_check_title == 'rejected' %}
-                                    {{ chapter.title }}
-                                    <span class="review-status rejected">(审核不通过)</span>
-                                {% else %}
-                                    {{ chapter.title }}
-                                {% endif %}
+                                第{{ chapter.chapter_number }}章 {{ chapter.title|default:chapter.title_pending }}
                             </h6>
                             <small class="text-muted">
                                 <i class="fas fa-calendar"></i> {{ chapter.updated_at|date:"Y-m-d H:i" }}
                             </small>
                             
-                            <!-- 拒绝原因：只在确实被拒绝且没有通过审核时显示 -->
-                            {% if chapter.title_reject_reason %}
+                            <!-- 章节审核状态 -->
+                            {% if chapter.title_pending %}
                                 {% if chapter.adm_check_title == 'rejected' %}
-                                    <!-- 管理员明确拒绝 -->
-                                    <div class="small text-danger">
-                                        <i class="fas fa-exclamation-circle"></i> {{ chapter.title_reject_reason }}
+                                    <div class="alert alert-danger alert-sm border-0 bg-light-danger mt-2">
+                                        <div class="d-flex align-items-start">
+                                            <div>
+                                                <strong>❌管理员审核标题不通过</strong>
+                                                <small class="text-muted">原因：{{ chapter.title_reject_reason }}</small>
+                                            </div>
+                                        </div>
                                     </div>
-                                {% elif chapter.ai_check_title == 'rejected' and chapter.adm_check_title is None %}
-                                    <!-- AI拒绝且管理员未审核 -->
-                                    <div class="small text-warning">
-                                        <i class="fas fa-exclamation-circle"></i> {{ chapter.title_reject_reason }}
+                                {% elif chapter.ai_check_title == 'pending' %}
+                                    <div class="alert alert-warning alert-sm border-0 bg-light-warning mt-2">
+                                        <div class="d-flex align-items-start">
+                                            <span class="me-2"></span>
+                                            <div>
+                                                <strong>⚠️ AI审核标题不通过</strong>
+                                                <small class="text-muted">原因{{ chapter.title_reject_reason }}</small>
+                                            </div>
+                                        </div>
                                     </div>
                                 {% endif %}
                             {% endif %}
-                            {% if chapter.content_reject_reason %}
+                            
+                            {% if chapter.content_pending %}
                                 {% if chapter.adm_check_content == 'rejected' %}
-                                    <!-- 管理员明确拒绝 -->
-                                    <div class="small text-danger">
-                                        <i class="fas fa-exclamation-circle"></i> {{ chapter.content_reject_reason }}
+                                    <div class="alert alert-danger alert-sm border-0 bg-light-danger mt-2">
+                                        <div class="d-flex align-items-start">
+                                            <div>
+                                                <strong>❌ 管理员审核内容不通过</strong>
+                                                <small class="text-muted">原因：{{ chapter.content_reject_reason }}</small>
+                                            </div>
+                                        </div>
                                     </div>
-                                {% elif chapter.ai_check_content == 'rejected' and chapter.adm_check_content is None %}
-                                    <!-- AI拒绝且管理员未审核 -->
-                                    <div class="small text-warning">
-                                        <i class="fas fa-exclamation-circle"></i> {{ chapter.content_reject_reason }}
+                                {% elif chapter.ai_check_content == 'pending' %}
+                                    <div class="alert alert-warning alert-sm border-0 bg-light-warning mt-2">
+                                        <div class="d-flex align-items-start">
+                                            <div>
+                                                <strong>⚠️ AI审核内容不通过</strong>
+                                                <small class="text-muted">原因：{{ chapter.content_reject_reason }}</small>
+                                            </div>
+                                        </div>
                                     </div>
                                 {% endif %}
                             {% endif %}
@@ -140,10 +202,14 @@
         <div class="card mt-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-comments"></i> 作品评论</h5>
-                {% if user.can_create_content %}
+                {% if user.is_authenticated and user.display_name %}
                 <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#commentModal">
                     <i class="fas fa-comment"></i> 发表评论
                 </button>
+                {% elif user.is_authenticated %}
+                <a href="{% url 'accounts:profile' %}" class="btn btn-warning btn-sm">
+                    <i class="fas fa-user-edit"></i> 设置昵称后可评论
+                </a>
                 {% endif %}
             </div>
             <div class="card-body" id="bookComments">
@@ -211,7 +277,7 @@
 </div>
 
 <!-- 评论模态框 -->
-{% if user.can_create_content %}
+{% if user.is_authenticated and user.display_name %}
 <div class="modal fade" id="commentModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -248,38 +314,99 @@ $(document).ready(function() {
     loadBookComments();
     
     // 发表评论
-    {% if user.can_create_content %}
     $('#commentForm').submit(function(e) {
         e.preventDefault();
         
-        const formData = new FormData(this);
-        formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+        const content = $('#comment_content').val().trim();
+        if (!content) {
+            alert('请输入评论内容');
+            return;
+        }
         
-        $.post('{% url "comments:api_add_comment" %}', formData)
+        const csrfToken = $('[name=csrfmiddlewaretoken]').val();
+        
+        $.post('{% url "comments:add_book_comment" book.id %}', {
+            content: content,
+            csrfmiddlewaretoken: csrfToken
+        })
         .done(function(response) {
             if (response.success) {
-                alert(response.message);
                 $('#commentModal').modal('hide');
                 $('#commentForm')[0].reset();
+                
+                // 如果评论需要审核，显示提示
+                if (response.message && response.message.includes('审核中')) {
+                    // 在页面顶部显示审核提示
+                    const alertHtml = `
+                        <div class="alert alert-info alert-dismissible fade show mt-3" role="alert">
+                            <i class="fas fa-info-circle"></i> ${response.message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    `;
+                    $('.row').first().prepend(alertHtml);
+                    
+                    // 3秒后自动消失
+                    setTimeout(function() {
+                        $('.alert-info').alert('close');
+                    }, 3000);
+                }
+                
                 loadBookComments(); // 重新加载评论
             } else {
-                alert('评论失败：' + response.message);
+                alert('评论失败：' + response.error);
             }
         })
         .fail(function() {
             alert('网络错误，请稍后重试');
         });
     });
-    {% endif %}
 });
 
 function loadBookComments() {
-    // 这里应该加载评论，由于简化实现，暂时显示占位内容
-    $('#bookComments').html(`
-        <div class="text-center text-muted py-3">
-            <i class="fas fa-comment-dots"></i> 暂无评论，快来发表第一条评论吧！
-        </div>
-    `);
+    // 加载评论列表
+    $.get('{% url "comments:book_comments" book.id %}')
+    .done(function(data) {
+        // 解析HTML响应中的评论内容
+        const commentsHtml = $(data).find('#bookComments').html();
+        if (commentsHtml) {
+            $('#bookComments').html(commentsHtml);
+        } else {
+            $('#bookComments').html(`
+                <div class="text-center text-muted py-3">
+                    <i class="fas fa-comment-dots"></i> 暂无评论，快来发表第一条评论吧！
+                </div>
+            `);
+        }
+    })
+    .fail(function() {
+        $('#bookComments').html(`
+            <div class="text-center text-muted py-3">
+                <i class="fas fa-comment-dots"></i> 暂无评论，快来发表第一条评论吧！
+            </div>
+        `);
+    });
+}
+
+// 删除评论函数
+function deleteComment(commentId) {
+    if (confirm('确定要删除这条评论吗？')) {
+        const csrfToken = $('[name=csrfmiddlewaretoken]').val();
+        
+        $.post(`{% url 'comments:delete_comment' 0 %}`.replace('0', commentId), {
+            csrfmiddlewaretoken: csrfToken
+        })
+        .done(function(response) {
+            if (response.success) {
+                // 删除成功后直接重新加载评论，不显示弹窗
+                loadBookComments();
+            } else {
+                alert('删除失败：' + response.error);
+            }
+        })
+        .fail(function() {
+            alert('网络错误，请稍后重试');
+        });
+    }
 }
 </script>
 {% endblock %}

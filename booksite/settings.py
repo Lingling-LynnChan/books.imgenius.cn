@@ -13,7 +13,6 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 import os
 from decouple import config
-import pymongo
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -84,44 +83,18 @@ WSGI_APPLICATION = 'booksite.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': config('MYSQL_DB_DATABASE', default='booksite'),
-        'USER': config('MYSQL_DB_USER', default='root'),
-        'PASSWORD': config('MYSQL_DB_PASSWORD', default=''),
-        'HOST': config('MYSQL_DB_HOST', default='localhost'),
-        'PORT': config('MYSQL_DB_PORT', default=3306, cast=int),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
-# MongoDB settings
-MONGODB_URI = config('MONGODB_URI', default='mongodb://localhost:27017/')
-MONGODB_NAME = config('MONGODB_NAME', default='booksite_content')
-
-# MongoDB client will be initialized when needed
-# mongodb = None  # Initialized in mongodb_utils.py
-
-# Redis settings
-REDIS_HOST = config('REDIS_HOST', default='localhost')
-REDIS_PORT = config('REDIS_PORT', default=6379, cast=int)
-REDIS_DB = config('REDIS_DB', default=0, cast=int)
-
-# Cache configuration
-if DEBUG:
-    # 开发环境使用本地内存缓存
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'booksite-cache',
-        }
+# Cache configuration - 使用本地内存缓存
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'booksite-cache',
     }
-else:
-    # 生产环境使用Redis缓存
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
-        }
-    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

@@ -28,47 +28,80 @@
                     <div class="card-body">
                         <h5 class="card-title">
                             {{ book.display_title }}
-                            {% if book.title_pending and book.title_pending != book.title %}
-                                <span class="review-status pending">(审核中)</span>
-                            {% elif book.adm_check_title == 'rejected' %}
-                                <span class="review-status rejected">(审核不通过)</span>
-                            {% endif %}
                         </h5>
+                        
+                        <!-- 标题审核状态 -->
+                        {% if not book.is_title_approved %}
+                            {% if book.adm_check_title == 'rejected' %}
+                                <div class="alert alert-danger alert-sm border-0 bg-light-danger">
+                                    <div class="d-flex align-items-start">
+                                        <div>
+                                            <strong>❌ 管理员审核标题不通过</strong><br>
+                                            <small class="text-muted">原因：{{ book.title_reject_reason }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif book.ai_check_title == 'rejected' %}
+                                <div class="alert alert-warning alert-sm border-0 bg-light-warning">
+                                    <div class="d-flex align-items-start">
+                                        <div>
+                                            <strong>⚠️ AI审核标题不通过</strong><br>
+                                            <small class="text-muted">原因：{{ book.title_reject_reason }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif book.ai_check_title == 'pending' or book.adm_check_title == 'pending' %}
+                                <div class="alert alert-info alert-sm border-0 bg-light-info">
+                                    <div class="d-flex align-items-start">
+                                        <div>
+                                            <strong>⏳ 标题审核中</strong><br>
+                                            <small class="text-muted">正在等待审核结果</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endif %}
                         
                         <p class="card-text">
                             {{ book.display_description|truncatechars:80 }}
-                            {% if book.description_pending and book.description_pending != book.description %}
-                                <span class="review-status pending">(审核中)</span>
-                            {% elif book.adm_check_description == 'rejected' %}
-                                <span class="review-status rejected">(审核不通过)</span>
-                            {% endif %}
                         </p>
+                        
+                        <!-- 简介审核状态 -->
+                        {% if not book.is_description_approved %}
+                            {% if book.adm_check_description == 'rejected' %}
+                                <div class="alert alert-danger alert-sm border-0 bg-light-danger">
+                                    <div class="d-flex align-items-start">
+                                        <div>
+                                            <strong>❌ 管理员审核简介不通过</strong><br>
+                                            <small class="text-muted">原因：{{ book.description_reject_reason }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif book.ai_check_description == 'rejected' %}
+                                <div class="alert alert-warning alert-sm border-0 bg-light-warning">
+                                    <div class="d-flex align-items-start">
+                                        <div>
+                                            <strong>⚠️ AI审核简介不通过</strong><br>
+                                            <small class="text-muted">原因：{{ book.description_reject_reason }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif book.ai_check_description == 'pending' or book.adm_check_description == 'pending' %}
+                                <div class="alert alert-info alert-sm border-0 bg-light-info">
+                                    <div class="d-flex align-items-start">
+                                        <div>
+                                            <strong>⏳ 简介审核中</strong><br>
+                                            <small class="text-muted">正在等待审核结果</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endif %}
                         
                         <div class="small text-muted mb-3">
                             <i class="fas fa-calendar"></i> 创建于 {{ book.created_at|date:"Y-m-d H:i" }}<br>
                             <i class="fas fa-edit"></i> 更新于 {{ book.updated_at|date:"Y-m-d H:i" }}
                         </div>
-                        
-                        <!-- 拒绝原因：只在实际被拒绝时显示 -->
-                        {% if book.title_reject_reason and book.adm_check_title == 'rejected' %}
-                        <div class="alert alert-danger alert-sm">
-                            <strong>管理员拒绝标题：</strong>{{ book.title_reject_reason }}
-                        </div>
-                        {% elif book.title_reject_reason and book.ai_check_title == 'rejected' and book.adm_check_title is None %}
-                        <div class="alert alert-warning alert-sm">
-                            <strong>AI拒绝标题：</strong>{{ book.title_reject_reason }}
-                        </div>
-                        {% endif %}
-                        
-                        {% if book.description_reject_reason and book.adm_check_description == 'rejected' %}
-                        <div class="alert alert-danger alert-sm">
-                            <strong>管理员拒绝简介：</strong>{{ book.description_reject_reason }}
-                        </div>
-                        {% elif book.description_reject_reason and book.ai_check_description == 'rejected' and book.adm_check_description is None %}
-                        <div class="alert alert-warning alert-sm">
-                            <strong>AI拒绝简介：</strong>{{ book.description_reject_reason }}
-                        </div>
-                        {% endif %}
                         
                         <div class="d-flex justify-content-between">
                             <a href="{% url 'books:chapter_list' book.id %}" class="btn btn-outline-primary btn-sm">

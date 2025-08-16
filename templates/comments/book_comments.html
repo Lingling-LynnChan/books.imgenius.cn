@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block title %}作品评论 - {{ book.title }}{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-comments"></i> 
+                    《{{ book.title }}》 - 评论列表
+                </h5>
+            </div>
+            <div class="card-body" id="bookComments">
+                {% if page_obj.object_list %}
+                    {% for comment in page_obj.object_list %}
+                        <div class="comment-item border-bottom pb-3 mb-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">
+                                        <i class="fas fa-user-circle"></i> 
+                                        {{ comment.author.display_name|default:comment.author.email }}
+                                        
+                                        <!-- 显示审核状态（仅对评论作者可见，放在昵称后面）-->
+                                        {% if comment.author == user and not comment.is_visible %}
+                                            {% if comment.ai_check == 'pending' %}
+                                                <span class="badge bg-secondary text-white ms-2">
+                                                    <i class="fas fa-clock"></i> AI审核中
+                                                </span>
+                                            {% elif comment.ai_check == 'rejected' %}
+                                                <span class="badge bg-light text-muted border ms-2">
+                                                    <i class="fas fa-times"></i> AI审核未通过
+                                                </span>
+                                                {% if comment.adm_check == 'pending' %}
+                                                    <span class="badge bg-light text-muted border ms-1">
+                                                        <i class="fas fa-user-shield"></i> 等待管理员审核
+                                                    </span>
+                                                {% endif %}
+                                            {% elif comment.adm_check == 'pending' %}
+                                                <span class="badge bg-light text-muted border ms-2">
+                                                    <i class="fas fa-user-shield"></i> 管理员审核中
+                                                </span>
+                                            {% elif comment.adm_check == 'rejected' %}
+                                                <span class="badge bg-light text-muted border ms-2">
+                                                    <i class="fas fa-ban"></i> 审核未通过
+                                                </span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </h6>
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock"></i> 
+                                        {{ comment.created_at|date:"Y-m-d H:i" }}
+                                    </small>
+                                </div>
+                                {% if comment.author == user %}
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            onclick="deleteComment({{ comment.id }})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                {% endif %}
+                            </div>
+                            <div class="mt-2">
+                                <p class="mb-0">{{ comment.display_content|linebreaks }}</p>
+                                
+                                <!-- 显示拒绝原因（如果有）-->
+                                {% if comment.author == user and comment.reject_reason %}
+                                    <div class="alert alert-warning mt-2 mb-0">
+                                        <small><strong>拒绝原因：</strong>{{ comment.reject_reason }}</small>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                    
+                    <!-- 分页 -->
+                    {% if page_obj.has_other_pages %}
+                        <nav aria-label="评论分页">
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a>
+                                    </li>
+                                {% endif %}
+                                
+                                <li class="page-item active">
+                                    <span class="page-link">
+                                        第 {{ page_obj.number }} 页，共 {{ page_obj.paginator.num_pages }} 页
+                                    </span>
+                                </li>
+                                
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-comment-dots fa-3x mb-3"></i>
+                        <h5>暂无评论</h5>
+                        <p>快来发表第一条评论吧！</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// deleteComment 函数已移动到 book_detail.html 中
+// 这里保留空的 script 块以防需要添加其他功能
+</script>
+{% endblock %}

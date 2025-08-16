@@ -15,9 +15,6 @@
                 </a>
             </div>
             <div class="card-body">
-                <!-- CSRF Token -->
-                {% csrf_token %}
-                
                 {% if book %}
                     <div class="row">
                         <div class="col-md-8">
@@ -262,22 +259,14 @@
     </div>
 </div>
 
-{% endblock %}
-
-{% block extra_js %}
 <script>
-// 确保jQuery已加载
 $(document).ready(function() {
-    console.log('jQuery已加载，开始初始化审核功能'); // 调试信息
-    
     // 审核功能
     window.approveTitle = function() {
-        console.log('点击通过标题按钮'); // 调试信息
         submitReview('approve', '', 'title');
     };
     
     window.rejectTitle = function() {
-        console.log('点击拒绝标题按钮'); // 调试信息
         const reason = $('#titleRejectReason').val().trim();
         if (!reason) {
             alert('请填写拒绝原因');
@@ -288,12 +277,10 @@ $(document).ready(function() {
     };
     
     window.approveDescription = function() {
-        console.log('点击通过简介按钮'); // 调试信息
         submitReview('approve', '', 'description');
     };
     
     window.rejectDescription = function() {
-        console.log('点击拒绝简介按钮'); // 调试信息
         const reason = $('#descRejectReason').val().trim();
         if (!reason) {
             alert('请填写拒绝原因');
@@ -304,14 +291,8 @@ $(document).ready(function() {
     };
     
     function submitReview(action, reason, type) {
-        console.log('submitReview被调用:', action, reason, type); // 调试信息
-        
-        // 获取CSRF令牌 - 使用与其他页面一致的方式
-        const csrfToken = $('[name=csrfmiddlewaretoken]').val();
-        console.log('CSRF Token:', csrfToken); // 调试信息
-        
         const data = {
-            csrfmiddlewaretoken: csrfToken
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
         };
         
         if (type === 'title') {
@@ -322,12 +303,8 @@ $(document).ready(function() {
             data.description_reason = reason;
         }
         
-        console.log('提交审核数据:', data); // 调试信息
-        console.log('请求URL:', window.location.href); // 调试信息
-        
         $.post(window.location.href, data)
         .done(function(response) {
-            console.log('审核响应:', response); // 调试信息
             if (response.success) {
                 // 显示成功消息
                 const alertHtml = `
@@ -346,12 +323,13 @@ $(document).ready(function() {
                 alert('操作失败: ' + response.error);
             }
         })
-        .fail(function(xhr, status, error) {
-            console.error('AJAX失败:', xhr, status, error); // 调试信息
-            console.error('响应文本:', xhr.responseText); // 调试信息
-            alert('网络错误，请稍后重试: ' + error);
+        .fail(function() {
+            alert('网络错误，请稍后重试');
         });
     }
 });
 </script>
+
+<!-- 添加CSRF令牌 -->
+{% csrf_token %}
 {% endblock %}

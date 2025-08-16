@@ -1,8 +1,5 @@
 Django
-pymongo
-redis
 Pillow
-PyMySQL
 djangorestframework
 django-cors-headers
 requests

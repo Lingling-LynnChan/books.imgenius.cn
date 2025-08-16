@@ -60,19 +60,19 @@ def check_content_by_ai(content):
     except requests.exceptions.Timeout:
         return {
             'approved': False,
-            'reason': 'AI审核服务超时',
+            'reason': 'AI审核暂不可用',
             'confidence': 0.0
         }
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.RequestException:
         return {
             'approved': False,
-            'reason': f'AI审核服务连接失败: {str(e)}',
+            'reason': 'AI审核暂不可用',
             'confidence': 0.0
         }
-    except Exception as e:
+    except Exception:
         return {
             'approved': False,
-            'reason': f'AI审核异常: {str(e)}',
+            'reason': 'AI审核暂不可用',
             'confidence': 0.0
         }
 

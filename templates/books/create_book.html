@@ -122,27 +122,85 @@ $(document).ready(function() {
         updateCounter($(this), 200);
     });
     
-    // 表单验证
+    // 表单验证和AJAX提交
     $('form').submit(function(e) {
+        e.preventDefault(); // 阻止默认的表单提交
+        
         const title = $('#title').val().trim();
+        const description = $('#description').val().trim();
         
         if (!title) {
             alert('请填写作品名');
             $('#title').focus();
-            e.preventDefault();
             return;
         }
         
         if (title.length > 200) {
             alert('作品名不能超过200个字符');
             $('#title').focus();
-            e.preventDefault();
             return;
         }
         
         // 显示提交中状态
-        $(this).find('button[type=submit]').prop('disabled', true)
-               .html('<i class="fas fa-spinner fa-spin"></i> 创建中...');
+        const $submitBtn = $(this).find('button[type=submit]');
+        const originalText = $submitBtn.html();
+        $submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 创建中...');
+        
+        // AJAX提交
+        $.post('{% url "books:create_book" %}', {
+            title: title,
+            description: description,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        })
+        .done(function(response) {
+            if (response.success) {
+                // 创建美观的多行消息显示
+                const messages = response.message.split('\n');
+                let messageHtml = '<div class="alert alert-success alert-dismissible fade show" role="alert">';
+                messages.forEach(function(msg, index) {
+                    if (index > 0) messageHtml += '<br>';
+                    messageHtml += '<div class="d-flex align-items-center">';
+                    messageHtml += '<span class="me-2">' + msg + '</span>';
+                    messageHtml += '</div>';
+                });
+                messageHtml += '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+                messageHtml += '</div>';
+                
+                // 在表单上方插入消息
+                $('form').before(messageHtml);
+                
+                // 3秒后跳转到作品管理页
+                setTimeout(function() {
+                    window.location.href = '{% url "books:chapter_list" book_id=0 %}'.replace('0', response.book_id);
+                }, 3000);
+            } else {
+                // 显示错误消息
+                const alertHtml = '<div class="alert alert-danger alert-dismissible fade show" role="alert">' +
+                    '<div class="d-flex align-items-center">' +
+                    '<i class="fas fa-exclamation-triangle me-2"></i>' +
+                    '<span>❌ 创建失败：' + response.error + '</span>' +
+                    '</div>' +
+                    '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+                    '</div>';
+                $('form').before(alertHtml);
+                $submitBtn.prop('disabled', false).html(originalText);
+            }
+        })
+        .fail(function() {
+            // 显示网络错误消息
+            const alertHtml = '<div class="alert alert-danger alert-dismissible fade show" role="alert">' +
+                '<div class="d-flex align-items-start">' +
+                '<span class="me-2">🌐</span>' +
+                '<div>' +
+                '<strong>网络连接失败</strong><br>' +
+                '<small class="text-muted">请检查网络连接后重试</small>' +
+                '</div>' +
+                '</div>' +
+                '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+                '</div>';
+            $('form').before(alertHtml);
+            $submitBtn.prop('disabled', false).html(originalText);
+        });
     });
 });
 </script>

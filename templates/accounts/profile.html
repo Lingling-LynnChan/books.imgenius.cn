@@ -25,13 +25,22 @@
                                value="{{ user.display_name|default:'' }}" 
                                placeholder="请设置您的显示名称" maxlength="50" required>
                         <div id="display-name-feedback" class="form-text">
-                            <i class="fas fa-info-circle"></i> 
-                            显示名称将在您的作品和评论中显示，设置后才能进行创作和评论
+                            {% if user.display_name %}
+                                <i class="fas fa-check text-success"></i> 
+                                您已设置显示名称，可以正常进行创作和评论
+                            {% else %}
+                                <i class="fas fa-info-circle"></i> 
+                                显示名称将在您的作品和评论中显示，设置后才能进行创作和评论
+                            {% endif %}
                         </div>
                     </div>
                     
                     <button type="submit" class="btn btn-primary" id="saveDisplayNameBtn">
-                        <i class="fas fa-save"></i> 保存显示名称
+                        {% if user.display_name %}
+                            <i class="fas fa-edit"></i> 修改显示名称
+                        {% else %}
+                            <i class="fas fa-save"></i> 保存显示名称
+                        {% endif %}
                     </button>
                 </form>
                 
@@ -143,7 +152,11 @@ $(document).ready(function() {
         }
         
         if (displayName === originalDisplayName) {
-            $feedback.html('<i class="fas fa-info-circle"></i> 显示名称将在您的作品和评论中显示，设置后才能进行创作和评论').removeClass('text-success text-danger');
+            if (originalDisplayName) {
+                $feedback.html('<i class="fas fa-check text-success"></i> 这是您当前的显示名称，无需修改即可正常创作和评论').removeClass('text-danger').addClass('text-success');
+            } else {
+                $feedback.html('<i class="fas fa-info-circle"></i> 显示名称将在您的作品和评论中显示，设置后才能进行创作和评论').removeClass('text-success text-danger');
+            }
             $saveBtn.prop('disabled', false);
             return;
         }
